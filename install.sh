@@ -21,7 +21,8 @@
 #   AGENT_OFFICE_TARBALL       install this release tarball (a local file) instead of downloading one
 set -euo pipefail
 
-REPO="AgentSystemLabs/agent-office"
+# This fork releases its own builds: upstream plus its subagents and visitors (see FORK.md).
+REPO="${AGENT_OFFICE_REPO:-Omar-Tnzxo/agent-office}"
 MARKER="agent-office launcher, written by install.sh"
 INSTALL_DIR="${AGENT_OFFICE_INSTALL_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/agent-office}"
 VERSIONS="$INSTALL_DIR/versions"

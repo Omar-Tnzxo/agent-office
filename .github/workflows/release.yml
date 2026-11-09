@@ -63,7 +63,8 @@ jobs:
       - name: Pack the release
         id: pack
         run: |
-          version="$(node -p 'require("./package.json").version.split(".").slice(0, 2).join(".")').$(git rev-list --count HEAD)"
+          # The fork's releases carry -omar, so a version folder of this fork's never passes for upstream's (see FORK.md).
+          version="$(node -p 'require("./package.json").version.split(".").slice(0, 2).join(".")').$(git rev-list --count HEAD)-omar"
           npm version "$version" --no-git-tag-version --allow-same-version
           # It's built already, and installs don't have the build tools.
           npm pkg delete scripts.prepare
