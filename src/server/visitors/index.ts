@@ -22,6 +22,22 @@ export function claudeProjectsDir(env: NodeJS.ProcessEnv = process.env): string 
   return path.join(env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'projects');
 }
 
+/**
+ * Every projects folder the visitors are looked for in. Someone with several Claude Code accounts on
+ * one machine keeps a config folder per account (CLAUDE_CONFIG_DIR), and a session of any of them is
+ * a visitor: AGENT_OFFICE_CLAUDE_DIRS lists those config folders, separated the way PATH is. Without
+ * it, only the folder Claude Code itself would use here.
+ */
+export function claudeProjectsDirs(env: NodeJS.ProcessEnv = process.env): string[] {
+  const home = (dir: string) => (dir === '~' || dir.startsWith('~/') ? path.join(os.homedir(), dir.slice(1)) : dir);
+  const listed = (env.AGENT_OFFICE_CLAUDE_DIRS ?? '')
+    .split(path.delimiter)
+    .map((dir) => dir.trim())
+    .filter(Boolean)
+    .map((dir) => path.join(path.resolve(home(dir)), 'projects'));
+  return listed.length ? [...new Set(listed)] : [claudeProjectsDir(env)];
+}
+
 /** One floor, as the visitors need it. */
 export interface VisitorFloor {
   id: string;
@@ -119,7 +135,8 @@ class Origins {
 }
 
 export class Visitors {
-  readonly scanner: SessionScanner;
+  /** One scanner per projects folder (see claudeProjectsDirs). */
+  readonly scanners: SessionScanner[];
   private timer?: NodeJS.Timeout;
   private origins = new Origins();
   private byFloor = new Map<string, Visitor[]>();
@@ -129,10 +146,21 @@ export class Visitors {
   private workers = new Set<string>();
 
   constructor(
-    private opts: { root: string; off?: boolean },
+    private opts: { root?: string; roots?: string[]; off?: boolean },
     private deps: VisitorsDeps,
   ) {
-    this.scanner = new SessionScanner(opts.root);
+    const roots = [...new Set([...(opts.roots ?? []), ...(opts.root ? [opts.root] : [])])];
+    this.scanners = roots.map((root) => new SessionScanner(root));
+  }
+
+  /** The first projects folder's scanner. */
+  get scanner(): SessionScanner {
+    return this.scanners[0];
+  }
+
+  /** When a session was first seen in use, whichever folder it is in. */
+  private since(id: string): number {
+    return Math.max(0, ...this.scanners.map((scanner) => scanner.since(id)));
   }
 
   start() {
@@ -162,7 +190,11 @@ export class Visitors {
     try {
       for (const id of this.deps.workerSessions()) this.workers.add(id);
       const floors = this.deps.floors();
-      const sightings = this.scanner.scan((id) => this.workers.has(id), now);
+      // The same session can't be in two folders, but a folder listed twice under two names could be.
+      const seen = new Set<string>();
+      const sightings = this.scanners
+        .flatMap((scanner) => scanner.scan((id) => this.workers.has(id), now))
+        .filter((s) => !seen.has(s.id) && !!seen.add(s.id));
       const next = new Map<string, Visitor[]>();
       for (const s of sightings) {
         const cwd = s.facts.cwd;
@@ -173,7 +205,7 @@ export class Visitors {
         list.push(visitorOf(s, where.lobby));
         next.set(where.floor, list);
       }
-      this.byFloor = new Map([...next].map(([floor, list]) => [floor, list.sort((a, b) => this.scanner.since(a.id) - this.scanner.since(b.id) || a.id.localeCompare(b.id)).slice(0, MAX_VISITORS)]));
+      this.byFloor = new Map([...next].map(([floor, list]) => [floor, list.sort((a, b) => this.since(a.id) - this.since(b.id) || a.id.localeCompare(b.id)).slice(0, MAX_VISITORS)]));
       for (const f of floors) {
         const state = this.state(f.id);
         const key = JSON.stringify(state);

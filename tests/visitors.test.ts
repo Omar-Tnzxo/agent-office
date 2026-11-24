@@ -5,9 +5,9 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, ut
 import os from 'node:os';
 import path from 'node:path';
 import type { VisitorsState } from '../src/shared/protocol.js';
-import { appOf, sessionOf, turnOf } from '../src/server/visitors/transcript.js';
+import { appOf, roleOf, sessionOf, turnOf } from '../src/server/visitors/transcript.js';
 import { SessionScanner } from '../src/server/visitors/scan.js';
-import { Visitors, claudeProjectsDir, floorFor, shortFolder, visitorOf } from '../src/server/visitors/index.js';
+import { Visitors, claudeProjectsDir, claudeProjectsDirs, floorFor, shortFolder, visitorOf } from '../src/server/visitors/index.js';
 
 const NOW = Date.UTC(2026, 10, 9, 12);
 const lines = (...es: object[]) => es.map((e) => JSON.stringify(e)).join('\n') + '\n';
@@ -166,3 +166,46 @@ test("the office tells each floor its visitors when they change, never counts it
   await off.look(now);
   assert.deepEqual(off.state('f1'), { visitors: [], off: true });
 });
+
+test('a session that is told who it is in its first words goes by that role', () => {
+  assert.equal(roleOf('You are the Copywriter (`copywriter`) of Acme Agency. Work in the repository at /srv/acme.'), 'Copywriter');
+  assert.equal(roleOf('You are the Managing Director of Acme Agency.'), 'Managing Director');
+  assert.equal(roleOf("You are today's runner of Acme Agency, started by the daily schedule."), "Today's runner");
+  assert.equal(roleOf('You are an expert code reviewer. Review the diff.'), 'Expert code reviewer');
+  assert.equal(roleOf('Make the hero section load faster'), undefined);
+  assert.equal(roleOf('You are ' + 'very '.repeat(20) + 'long'), undefined);
+  const head = [user('You are the Data Analyst (`data-analyst`) of Acme Agency.\nWork in the repository at /srv/acme. Read AGENTS.md first.', { cwd: '/srv/acme' })];
+  assert.equal(sessionOf(head, head).prompt, 'Data Analyst');
+  const passedOn = [user('[T3 Code: the agent in T3 thread "abc" sent this message, not the user.]\n\nYou are the Copywriter (`copywriter`) of Acme Agency.', { cwd: '/srv/acme' })];
+  assert.equal(sessionOf(passedOn, passedOn).prompt, 'Copywriter');
+  // A name given in the app still wins over the role.
+  assert.equal(sessionOf(head, [{ type: 'custom-title', customTitle: 'Weekly numbers' }]).title, 'Weekly numbers');
+});
+
+test('with several Claude Code accounts on one machine, the sessions of every listed one are visitors', async (t) => {
+  assert.deepEqual(claudeProjectsDirs({ CLAUDE_CONFIG_DIR: '/x/claude' }), [path.join('/x/claude', 'projects')]);
+  assert.deepEqual(claudeProjectsDirs({ AGENT_OFFICE_CLAUDE_DIRS: ['/x/claude', ' /y/claude-work ', '', '/x/claude'].join(path.delimiter) }), [
+    path.join('/x/claude', 'projects'),
+    path.join('/y/claude-work', 'projects'),
+  ]);
+  assert.deepEqual(claudeProjectsDirs({ AGENT_OFFICE_CLAUDE_DIRS: '~/.claude-two' }), [path.join(os.homedir(), '.claude-two', 'projects')]);
+
+  const one = projects(t);
+  const two = projects(t);
+  const now = Date.now();
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'ao-floor-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  one.put(`p/${UUID(7)}.jsonl`, lines(user('You are the Copywriter (`copywriter`) of Acme Agency.', { cwd: dir }), assistant([toolUse('Edit', { file_path: 'copy.md' })], 'tool_use')), 0);
+  two.put(`p/${UUID(8)}.jsonl`, lines(user('You are the Graphic Designer (`graphic-designer`) of Acme Agency.', { cwd: dir }), assistant([toolUse('Bash', { command: 'render' })], 'tool_use')), 0);
+  utimesSync(path.join(one.root, `p/${UUID(7)}.jsonl`), now / 1000, now / 1000);
+  utimesSync(path.join(two.root, `p/${UUID(8)}.jsonl`), now / 1000, now / 1000);
+  const sent: [string, VisitorsState][] = [];
+  const visitors = new Visitors(
+    { roots: [one.root, two.root, one.root] },
+    { floors: () => [{ id: 'agency', dir }], workerSessions: () => new Set(), watched: () => true, send: (floor, state) => void sent.push([floor, state]) },
+  );
+  assert.equal(visitors.scanners.length, 2, 'a folder listed twice is looked over once');
+  await visitors.look(now);
+  assert.deepEqual(sent[0][1].visitors.map((v) => v.title).sort(), ['Copywriter', 'Graphic Designer']);
+});
+

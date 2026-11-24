@@ -166,7 +166,10 @@ Options:
       --no-visitors       Don't show the Claude Code sessions the office didn't
                           start (the desktop app, a terminal) as visitors; it
                           only ever reads their transcripts under ~/.claude
-                          (env AGENT_OFFICE_VISITORS=0)
+                          (env AGENT_OFFICE_VISITORS=0). With several Claude Code
+                          accounts on this machine, list their config folders in
+                          AGENT_OFFICE_CLAUDE_DIRS (separated like PATH) and the
+                          sessions of every one of them are visitors
   -h, --help              Show this help
 
 Started in a terminal, the office opens in your browser already signed in, with

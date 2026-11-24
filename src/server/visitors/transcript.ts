@@ -131,12 +131,24 @@ export interface SessionFacts {
   app: VisitorApp;
 }
 
+/**
+ * Who a prompt says the session is, when it opens that way: "You are the Copywriter (`copywriter`)
+ * of Acme Agency. ..." is the Copywriter. An agent started by a runner with a role is told so in
+ * its first words, and that role is a better name for it on the floor than the start of a sentence.
+ */
+export function roleOf(text: string): string | undefined {
+  const m = /^You are (?:the |an? )?([^.,;:()\n]{2,40}?)(?=\s*\(|\s+(?:of|at|for|in)\s|[.,;:]|$)/i.exec(text);
+  const role = m?.[1].trim();
+  return role ? role[0].toUpperCase() + role.slice(1) : undefined;
+}
+
 /** A prompt worth calling the session by: a person's, not a command's or a reminder's. */
 function promptOf(e: any): string | undefined {
   if (e.type !== 'user' || e.isMeta || e.isSidechain || e.origin?.kind === 'task-notification') return undefined;
   const text = textOf(e.message?.content).replace(/\s+/g, ' ').trim();
   if (!text || text.startsWith('<') || text.startsWith('[Request interrupted')) return undefined;
-  return truncate(text, 70);
+  // An app that passes one agent's message on to another says so in a bracketed note first.
+  return roleOf(text.replace(/^\[[^\]]{1,300}\]\s*/, '')) ?? truncate(text, 70);
 }
 
 export function sessionOf(head: any[], tail: any[]): SessionFacts {
