@@ -60,6 +60,7 @@ import { installLamplight } from './features/lamplight';
 import { installTelescope } from './features/telescope';
 import { installTv } from './features/tv';
 import { installVisitors } from './features/visitors';
+import { installHandoffs } from './features/handoffs';
 import { installVoice } from './features/voice';
 import { installWaiting } from './features/waiting';
 import { installWalking } from './features/walking';
@@ -173,6 +174,7 @@ parts.seating = installSeating(ctx, { shares: () => parts.talk.currentShares(), 
 installGong(ctx, { burstOver: parts.views.burstOver, workerViews: parts.views.workerViews, court: () => parts.worlds.court(), idleAgents: () => parts.worlds.idleAgents() });
 installSubagents(ctx);
 parts.visitors = installVisitors(ctx);
+parts.handoffs = installHandoffs(ctx, parts);
 
 parts.hintbar = installHintBar(ctx, core, parts);
 parts.emotes = installEmotes(ctx, { personOf });
