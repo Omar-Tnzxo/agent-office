@@ -3,7 +3,8 @@ import type { ApprovalSummary, TicketDetail, TicketFile, TicketSummary } from '.
 import { roleName } from '../../../shared/tickets';
 import { store } from '../../state';
 import { h, openModal, setDoing, toast } from '../../ui/dom';
-import { markdownFile } from '../../ui/markdown';
+import { markdownHtml } from '../../ui/markdown';
+import { reviewHtml } from './md';
 
 // The review table's window: what waits on the owner and what's in review on this floor, down the
 // side, and the one picked beside them, read-only: an approval's request, or a ticket (its goal and
@@ -12,7 +13,7 @@ import { markdownFile } from '../../ui/markdown';
 /** One thing in the list: an approval waiting on the owner, or a ticket. */
 type Item = { kind: 'approval'; a: ApprovalSummary } | { kind: 'ticket'; t: TicketSummary };
 
-const keyOf = (it: Item) => (it.kind === 'approval' ? `a:${it.a.id}` : `t:${it.t.id}`);
+const keyOf = (it: Item) => (it.kind === 'approval' ? `a:${it.a.id}` : `t:${it.t.folder}`);
 
 /** A role as the floor calls it: the name on its card, else its slug written out. */
 export const nameOfRole = (slug: string | undefined) => (slug ? (store.tickets.roles[slug] ?? roleName(slug)) : 'nobody');
@@ -30,16 +31,12 @@ function body(text: string): { fields: [string, string][]; rest: string } {
 }
 
 /**
- * A file's Markdown, rendered: each block reads in its own direction (an Arabic request right to
- * left), and a picture beside it in the repository, which the window can't show, is its name.
+ * A file's Markdown, rendered so it loads nothing (a picture or a video is its name and where it is,
+ * see md.ts), each block reading in its own direction (an Arabic request right to left).
  */
 function render(src: string): HTMLElement {
-  const md = markdownFile(src);
+  const md = markdownHtml(reviewHtml(src));
   for (const el of md.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, blockquote, td, th')) el.setAttribute('dir', 'auto');
-  for (const img of md.querySelectorAll('img')) {
-    const src = img.getAttribute('src') ?? '';
-    if (!/^https?:/i.test(src)) img.replaceWith(h('code.rv-pic', { title: src }, `🖼️ ${img.alt || src}`));
-  }
   return md;
 }
 
@@ -89,8 +86,8 @@ export function openReview(deps: ReviewDeps) {
       it.kind === 'approval'
         ? [it.a.decision ?? it.a.id, [it.a.sent, it.a.ticket].filter(Boolean).join(' · ')]
         : [it.t.title, `${it.t.stage || it.t.status} → ${nameOfRole(it.t.next)}${it.t.due ? ` · not before ${it.t.due}` : ''}`];
-    const li = h('li.rv-item', { class: key === current ? 'open' : '', title: it.kind === 'approval' ? `approvals/pending/${it.a.id}.md` : `work/${it.t.id}/ticket.md` }, h('div.rv-title', { dir: 'auto' }, title), h('div.rv-sub', {}, sub));
-    li.addEventListener('click', () => void (it.kind === 'approval' ? openApproval(it.a.id) : openTicket(it.t.id)));
+    const li = h('li.rv-item', { class: key === current ? 'open' : '', title: it.kind === 'approval' ? `approvals/pending/${it.a.id}.md` : `work/${it.t.folder}/ticket.md` }, h('div.rv-title', { dir: 'auto' }, title), h('div.rv-sub', {}, sub));
+    li.addEventListener('click', () => void (it.kind === 'approval' ? openApproval(it.a.id) : openTicket(it.t.folder)));
     return li;
   };
 

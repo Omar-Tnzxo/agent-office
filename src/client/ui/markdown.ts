@@ -117,6 +117,24 @@ export function markdownFile(src: string): HTMLElement {
   return el;
 }
 
+/**
+ * HTML already rendered from Markdown, sanitized into a `.md` block with nothing in it that could
+ * load from anywhere (no pictures, media or form fields), for a window that only shows text (see
+ * features/handoffs/ui.ts). markdownFile is left as it is for the rest of the office.
+ */
+export function markdownHtml(html: string): HTMLElement {
+  const el = h('div.md');
+  el.append(
+    purify.sanitize(html, {
+      RETURN_DOM_FRAGMENT: true,
+      FORBID_TAGS: ['style', 'form', 'button', 'select', 'textarea', 'img', 'picture', 'source', 'video', 'audio', 'track', 'input', 'svg', 'math', 'image'],
+      FORBID_ATTR: ['style', 'srcset', 'poster', 'src', 'background'],
+    }),
+  );
+  alerts(el);
+  return el;
+}
+
 /** https://github.com/owner/repo from an issue or PR URL. */
 export function repoUrlOf(itemUrl: string): string {
   return itemUrl.replace(/\/(pull|issues)\/\d+.*$/, '');

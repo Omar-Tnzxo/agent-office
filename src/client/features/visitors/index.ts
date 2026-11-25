@@ -460,10 +460,15 @@ export function installVisitors(ctx: Ctx) {
       return [...views.values()].filter((v) => v.desk && !lent.has(v.id)).map((v) => [v.id, v.desk!]);
     },
     /** Its model to walk about, standing on the floor (getting down off its chair first: `down`, from `seat`); none while it's in the middle of a hop or not out yet. */
-    lend(id: string): { model: Worker; seat: DeskView['def'] | null; down: Walk['down'] } | undefined {
+    /** Whether it can be lent right now (see lend): it's here, on its feet or in its chair, not half way through a hop. */
+    canLend(id: string): boolean {
       const view = views.get(id);
       const w = view?.walk;
-      if (!view || lent.has(id) || !group.visible || w?.up || w?.down || (w && w.wait > 0)) return undefined;
+      return !!view && !lent.has(id) && group.visible && !w?.up && !w?.down && !(w && w.wait > 0);
+    },
+    lend(id: string): { model: Worker; seat: DeskView['def'] | null; down: Walk['down'] } | undefined {
+      const view = views.get(id);
+      if (!view || !errands.canLend(id)) return undefined;
       const { root } = view.model;
       let seat: DeskView['def'] | null = null;
       let down: Walk['down'] = null;

@@ -2,6 +2,39 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Handoff, TicketSummary, Visitor } from '../src/shared/protocol.js';
 import { HandoffQueue, isRole, trayFor, visitorFor } from '../src/client/features/handoffs/plan.js';
+import { reviewHtml } from '../src/client/features/handoffs/md.js';
+
+test("the review window's Markdown loads nothing: pictures, media and raw HTML come out as text", () => {
+  const html = reviewHtml(
+    [
+      '# A request',
+      '',
+      '![the six covers](samples/all.png) and ![remote](https://example.com/x.png "t")',
+      '',
+      '<img src="https://example.com/a.png" srcset="https://example.com/b.png 2x">',
+      '',
+      '<picture><source srcset="https://example.com/c.webp"><img src="https://example.com/c.png"></picture>',
+      '',
+      '<video poster="https://example.com/p.png" src="https://example.com/v.mp4"><track src="https://example.com/t.vtt"></video>',
+      '',
+      'Some <audio src="https://example.com/a.mp3"></audio> inline, and <input type="image" src="https://example.com/i.png">.',
+      '',
+      '- [x] done',
+      '- [ ] not yet',
+      '',
+      '[a link](https://example.com/page) stays a link.',
+    ].join('\n'),
+  );
+  for (const tag of ['img', 'picture', 'source', 'video', 'audio', 'track', 'input']) assert.doesNotMatch(html, new RegExp(`<${tag}\\b`, 'i'), tag);
+  // Written out as text it may say src=, but no tag has one.
+  assert.doesNotMatch(html, /<[^>]*\s(srcset|poster|src)=/i);
+  assert.match(html, /🖼️ the six covers \(samples\/all\.png\)/);
+  assert.match(html, /🖼️ remote \(https:\/\/example\.com\/x\.png\)/);
+  assert.match(html, /&lt;video/);
+  assert.match(html, /☑ done/);
+  assert.match(html, /☐ not yet/);
+  assert.match(html, /<a href="https:\/\/example\.com\/page">a link<\/a>/);
+});
 
 const visitor = (id: string, title: string, o: Partial<Visitor> = {}): Visitor => ({ id, title, app: 'cli', folder: 'a/b', status: 'working', seenAt: 1, lobby: false, subagents: [], subagentCount: 0, ...o });
 const handoff = (from: string, to: string, ticket = 't'): Handoff => ({ ticket, title: ticket, from, to, stage: 's', result: 'r', say: 'x', kind: 'handoff', at: 0 });

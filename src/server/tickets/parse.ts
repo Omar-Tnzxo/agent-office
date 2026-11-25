@@ -1,6 +1,7 @@
 // Reading the files a floor keeps its work in: a ticket's front matter, its goal and its chain log,
 // an approval waiting on the owner, a role's card. Pure: nothing here touches the disk. A file that
 // doesn't read as one of these gives nothing, and a row that doesn't read as one is skipped.
+import { createHash } from 'node:crypto';
 import type { ApprovalSummary, ChainRow, HandoffKind } from '../../shared/protocol.js';
 import { isReviewStage, stageName } from '../../shared/tickets.js';
 import { truncate } from '../workers/util.js';
@@ -55,10 +56,14 @@ export function kindOf(result: string): HandoffKind {
   return 'handoff';
 }
 
+/** Words before or after "stage" that aren't a stage's name ("no change of stage", "the same stage"). */
+const NOT_A_STAGE = new Set(['of', 'the', 'this', 'that', 'same', 'no', 'next', 'each', 'every', 'a', 'an', 'its', 'one', 'new', 'old', 'current', 'unchanged', 'and', 'or', 'to', 'at', 'in', 'on']);
+
 /** The first stage a result names: "stage `copy-review`", "copy-review stage", "md-approval; then ...". */
 export function stageIn(result: string): string | undefined {
-  const named = /\bstage\s+`?([A-Za-z0-9][\w-]{0,40})`?/i.exec(result)?.[1] ?? /`?([A-Za-z0-9][\w-]{0,40})`?\s+stage\b/i.exec(result)?.[1];
-  if (named) return named.toLowerCase();
+  const pick = (m: RegExpExecArray | null) => (m && !NOT_A_STAGE.has(m[1].toLowerCase()) ? m[1].toLowerCase() : undefined);
+  const named = pick(/\bstage\s+`?([A-Za-z0-9][\w-]{0,40})`?/i.exec(result)) ?? pick(/`?([A-Za-z0-9][\w-]{0,40})`?\s+stage\b/i.exec(result));
+  if (named) return named;
   // Else a review's name on its own among the first words ("copy-review, checking only the two changes").
   return result
     .slice(0, 60)
@@ -67,11 +72,21 @@ export function stageIn(result: string): string | undefined {
     ?.find((w) => isReviewStage(w));
 }
 
+/** A row that left the ticket where it was ("no change of stage", "graphic-designer (unchanged)"): no handoff, whatever its Next says. */
+export function leftAsIs(result: string, nextCell: string): boolean {
+  return /\bno change\b|\bunchanged\b/i.test(result) || /\(unchanged\)|\bunchanged\b/i.test(nextCell);
+}
+
+/** What tells one row from another, whatever else changed in the file: a short hash of its cells. */
+export function rowPrint(r: Pick<ChainRow, 'when' | 'role' | 'did' | 'result' | 'next'>): string {
+  return createHash('sha1').update(`${r.when}|${r.role}|${r.did.slice(0, 40)}|${r.result}|${r.next ?? ''}`).digest('hex').slice(0, 16);
+}
+
 /**
  * The rows of a ticket's chain log: the table under its "Chain log" heading, `| When | Role | Did |
- * Result | Next |`. The header says which column is which; a row with fewer cells, no role or not
- * a role's slug in it is skipped, and the extra cells of one with an unescaped pipe in it go back
- * into its Did.
+ * Result | Next |`. The header says which column is which. A row missing only its last cell (a Next
+ * nobody wrote) is read with it empty; one with fewer cells, no role or not a role's slug in it is
+ * skipped, and the extra cells of one with an unescaped pipe in it go back into its Did.
  */
 export function chainLog(body: string, ticket: string): ChainRow[] {
   const lines = body.split(/\r?\n/);
@@ -105,13 +120,15 @@ export function chainLog(body: string, ticket: string): ChainRow[] {
       const extra = row.length - header.length;
       row = [...row.slice(0, did), row.slice(did, did + extra + 1).join(' | '), ...row.slice(did + extra + 1)];
     }
-    if (row.length < header.length) continue;
+    // Only the last cell may be missing.
+    if (row.length < header.length - 1 || (row.length < header.length && col('next', 4) !== header.length - 1)) continue;
     // The role cell is a slug and nothing else ("Creative Director!" is a row written some other way).
     const roleCell = (row[col('role', 1)] ?? '').replace(/[`*_]/g, '').trim();
     const role = /^[A-Za-z][A-Za-z0-9-]{0,48}$/.test(roleCell) ? roleSlug(roleCell) : undefined;
     if (!role) continue;
     const result = row[col('result', 3)] ?? '';
-    const next = roleSlug(row[col('next', 4)]);
+    const nextCell = row[col('next', 4)] ?? '';
+    const next = roleSlug(nextCell);
     out.push({
       ticket,
       when: truncate(row[col('when', 0)] ?? '', 24),
@@ -120,6 +137,7 @@ export function chainLog(body: string, ticket: string): ChainRow[] {
       result: truncate(result, RESULT_CHARS),
       ...(next ? { next } : {}),
       kind: kindOf(result),
+      ...(leftAsIs(result, nextCell) ? { same: true as const } : {}),
     });
   }
   return out;
@@ -166,7 +184,7 @@ export function parseTicket(folder: string, text: string): ParsedTicket | undefi
     ...(roleSlug(f.next_role) ? { next: roleSlug(f.next_role) } : {}),
     ...(f.due ? { due: truncate(f.due, 24) } : {}),
     ...(f.line ? { line: truncate(f.line, 32) } : {}),
-    rows: chainLog(fm.body, id),
+    rows: chainLog(fm.body, folder),
   };
 }
 

@@ -1,8 +1,9 @@
-// Which copy of a floor's repository its tickets are read from. The work happens where the floor's
+// Which copies of a floor's repository its tickets are read from. The work happens where the floor's
 // visitors are, not in the floor's own checkout: in their folders, in the git worktree each folder
 // is (a T3 worktree, say), and in the checkout those worktrees belong to, which a runner may have
-// told them to work in. Of all of those that keep tickets, the one whose newest ticket.md was
-// written last is read, and the floor's checkout when none has any.
+// told them to work in. Up to MAX_COPIES of those that keep tickets are read, the ones with the
+// newest ticket.md first, and the floor's own checkout when none has any; the office puts what they
+// say together ticket by ticket (see index.ts).
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -16,15 +17,21 @@ export interface Candidate {
   newest: number;
 }
 
+/** The most copies read for one floor. */
+export const MAX_COPIES = 6;
+
 /**
- * The copy to read: the one with the newest ticket.md. On a tie the one listed first wins, so list
- * the visitors' folders first (the one that wrote last first) and the floor's checkout last.
- * Undefined when none has a ticket.
+ * The copies to read: the ones with a ticket, the newest ticket.md first, at most `max`. On a tie the
+ * one listed first goes first, so list the visitors' folders first (the one that wrote last first)
+ * and the floor's checkout last.
  */
-export function freshest(cands: readonly Candidate[]): string | undefined {
-  let best: Candidate | undefined;
-  for (const c of cands) if (c.newest > 0 && (!best || c.newest > best.newest)) best = c;
-  return best?.dir;
+export function copiesToRead(cands: readonly Candidate[], max = MAX_COPIES): string[] {
+  return cands
+    .map((c, i) => ({ ...c, i }))
+    .filter((c) => c.newest > 0)
+    .sort((a, b) => b.newest - a.newest || a.i - b.i)
+    .slice(0, max)
+    .map((c) => c.dir);
 }
 
 /** Each folder once, in the order first seen. */
@@ -51,12 +58,13 @@ export class GitRoots {
       return this.known.get(cwd)?.roots ?? [cwd];
     }
     const entry: { roots: string[]; at: number; asking?: Promise<void> } = { roots: had?.roots ?? [cwd], at: now };
+    this.known.set(cwd, entry);
+    // A folder that's gone has no roots, until it's asked about again once its time is up.
+    if (!existsSync(cwd)) {
+      entry.roots = [];
+      return entry.roots;
+    }
     entry.asking = new Promise<void>((resolve) => {
-      if (!existsSync(cwd)) {
-        entry.roots = [];
-        entry.asking = undefined;
-        return resolve();
-      }
       execFile('git', ['rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir'], { cwd, timeout: 5000, encoding: 'utf8' }, (err, out) => {
         const [top, common] = err ? [] : out.trim().split('\n');
         // The common dir of a worktree is its main checkout's .git; a bare repository's has no checkout.
@@ -66,7 +74,6 @@ export class GitRoots {
         resolve();
       });
     });
-    this.known.set(cwd, entry);
     await entry.asking;
     return entry.roots;
   }

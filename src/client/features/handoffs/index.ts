@@ -49,6 +49,7 @@ export function installHandoffs(ctx: Ctx, parts: HandoffParts) {
   const now = () => performance.now() / 1000;
 
   function showReview() {
+    if (!store.me.admin) return toast('Only admins can read the tickets at the review table');
     if (!store.floor) return toast('Take the elevator to a floor first');
     if (!store.tickets.on) return toast("This floor's repository keeps no tickets (work/<id>/ticket.md)");
     openReview({ floor: store.floor, project: store.project?.name });
@@ -99,6 +100,8 @@ export function installHandoffs(ctx: Ctx, parts: HandoffParts) {
     if (takerHere) to = { kind: 'visitor', id: takerHere.id };
     else if (h.kind === 'review' && table().shown()) to = { kind: 'table', tray: 'review', top: () => table().trayTop('review'), front: table().front };
     if (giver && lend.where(giver.id) && to) {
+      // Half way through a hop, or not out of the elevator yet: it goes once it can, and nothing's made till then.
+      if (!lend.canLend(giver.id)) return false;
       const e = new Errand(h, giver.id, to, { lender: lend, nav: ctx.world().nav, group, trayTop: (id) => trays.top(id), footstep: (x, y, z) => ctx.sound.stepAt(x, z, y) });
       const how = e.start();
       if (how === 'wait') return false;
@@ -138,9 +141,12 @@ export function installHandoffs(ctx: Ctx, parts: HandoffParts) {
       const s = store.tickets;
       const review = s.tickets.filter((t) => t.review).length;
       const waiting = s.approvals.length;
-      return { k: `${review}|${waiting}`, parts: [hintTitle('🗂️ Review table'), aside(`${review} in review · ${waiting} waiting for you`), key('E', 'Look through it')] };
+      const admin = store.me.admin;
+      return { k: `${review}|${waiting}|${admin}`, parts: [hintTitle('🗂️ Review table'), aside(`${review} in review · ${waiting} waiting for you${admin ? '' : ' · for admins'}`), ...(admin ? [key('E', 'Look through it')] : [])] };
     },
-    use: onE(() => showReview()),
+    use: onE(() => {
+      if (store.me.admin) showReview();
+    }),
   });
 
   return { showReview };

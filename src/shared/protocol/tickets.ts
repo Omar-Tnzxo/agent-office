@@ -8,6 +8,8 @@ export type HandoffKind = 'handoff' | 'return' | 'review';
 
 export interface TicketSummary {
   id: string;
+  /** Its folder under work/: what the office goes by (its front matter's id may say otherwise). */
+  folder: string;
   /** Its goal's first words, else its id. */
   title: string;
   /** The stage waiting to be done, and who does it (a role's slug). */
@@ -23,6 +25,7 @@ export interface TicketSummary {
 
 /** One row of a ticket's chain log: `role` did a stage, and passed it to `next`. */
 export interface ChainRow {
+  /** The ticket's folder. */
   ticket: string;
   when: string;
   role: string;
@@ -31,6 +34,8 @@ export interface ChainRow {
   /** The role it went to (a slug), when the row names one. */
   next?: string;
   kind: HandoffKind;
+  /** It left the ticket where it was ("no change of stage"): no handoff. */
+  same?: true;
 }
 
 /** Something waiting on the owner: a file in approvals/pending/. */
@@ -67,6 +72,7 @@ export const NO_TICKETS: TicketsState = { on: false, tickets: [], more: 0, log: 
 
 /** A new row in a ticket's chain log, the moment the office saw it: `from` handed the ticket to `to`. */
 export interface Handoff {
+  /** The ticket's folder. */
   ticket: string;
   title: string;
   from: string;

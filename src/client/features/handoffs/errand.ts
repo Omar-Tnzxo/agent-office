@@ -26,6 +26,7 @@ const TURN_MOST = 1.2;
 
 /** What a visitor errand needs of the visitors (see errands in features/visitors). */
 export interface Lender {
+  canLend(id: string): boolean;
   where(id: string): { x: number; z: number; desk: DeskView | null; model: Worker } | undefined;
   lend(id: string): { model: Worker; seat: DeskView['def'] | null; down: Walk['down'] } | undefined;
   giveBack(id: string, atOnce?: boolean): void;
@@ -89,20 +90,22 @@ export class Errand {
   private walk: Walk | null = null;
   private phase: 'walk' | 'give' | 'done' = 'walk';
   private t = 0;
-  private folder: THREE.Group;
+  /** Made once it sets off (see start). */
+  private folder = new THREE.Group();
   private flight: Flight | null = null;
   private replied = false;
-  /** A seated taker turned round to face the giver: its model, and how far. */
-  private turned: { model: Worker; by: number } | null = null;
+  /**
+   * A seated taker turned round to face the giver: its model, how far, and the seat it was in then.
+   * It's only turned (and turned back) while it's still in that seat: one that got up meanwhile is the visitors' again.
+   */
+  private turned: { model: Worker; by: number; seat: THREE.Object3D } | null = null;
 
   constructor(
     readonly handoff: Handoff,
     readonly giver: string,
     private to: Destination,
     private deps: ErrandDeps,
-  ) {
-    this.folder = folderModel(handoff.kind);
-  }
+  ) {}
 
   /** Lends the giver out and sets it off: 'wait' when it can't go just now (half way through a hop), 'gone' when its taker has left. */
   start(): 'started' | 'wait' | 'gone' {
@@ -123,6 +126,7 @@ export class Errand {
     const face = Math.atan2(target.look[0] - end[0], target.look[1] - end[1]);
     this.walk = walkAlong(way, null, face, root.rotation.y, 0, lent.down);
     // Under its arm, held up in front of it.
+    this.folder = folderModel(this.handoff.kind);
     this.folder.position.set(0, 0.5, 0.3);
     this.folder.rotation.set(-1.1, 0, 0);
     this.folder.scale.setScalar(0.001);
@@ -166,13 +170,13 @@ export class Errand {
     if (taker && !this.replied && this.t >= REPLY_AT) {
       this.replied = true;
       sayAbove(taker.model, reply(this.handoff), 0.75);
-      if (taker.desk && taker.model.root.parent) {
+      if (taker.desk && taker.model.root.parent === taker.desk.seatAnchor) {
         const anchorYaw = taker.desk.def.rotY + Math.PI;
         const want = Math.atan2(model.root.position.x - taker.x, model.root.position.z - taker.z);
-        this.turned = { model: taker.model, by: Math.max(-TURN_MOST, Math.min(TURN_MOST, wrap(want - anchorYaw))) };
+        this.turned = { model: taker.model, by: Math.max(-TURN_MOST, Math.min(TURN_MOST, wrap(want - anchorYaw))), seat: taker.desk.seatAnchor };
       }
     }
-    if (this.turned) {
+    if (this.turned && this.turned.model.root.parent === this.turned.seat) {
       // Round in its chair to face the giver, and back again at the end.
       const k = this.t < GIVE - 0.4 ? Math.min(1, this.t / 0.3) : Math.max(0, (GIVE - this.t) / 0.4);
       this.turned.model.root.rotation.y = this.turned.by * k;
@@ -211,7 +215,7 @@ export class Errand {
     this.phase = 'done';
     this.folder.removeFromParent();
     this.flight = null;
-    if (this.turned) this.turned.model.root.rotation.y = 0;
+    if (this.turned && this.turned.model.root.parent === this.turned.seat) this.turned.model.root.rotation.y = 0;
     if (this.model) this.deps.lender.giveBack(this.giver, atOnce);
     if (this.to.kind === 'visitor') this.deps.lender.refresh(this.to.id);
   }
