@@ -1,11 +1,12 @@
 # This fork
 
-[Omar-Tnzxo/agent-office](https://github.com/Omar-Tnzxo/agent-office) is [AgentSystemLabs/agent-office](https://github.com/AgentSystemLabs/agent-office) plus two features, offered upstream in [AgentSystemLabs/agent-office#405](https://github.com/AgentSystemLabs/agent-office/pull/405):
+[Omar-Tnzxo/agent-office](https://github.com/Omar-Tnzxo/agent-office) is [AgentSystemLabs/agent-office](https://github.com/AgentSystemLabs/agent-office) plus three features (the first two offered upstream in [AgentSystemLabs/agent-office#405](https://github.com/AgentSystemLabs/agent-office/pull/405)):
 
 - **Subagents at the desk.** A Claude Code worker's subagents (the Agent tool, a workflow's agents) stand round its chair while they run.
 - **Visitors.** Claude Code sessions the office didn't start (the Claude desktop app, a terminal, an IDE) show up on the floor whose repository they work in, with their subagents round them: one at work walks from the elevator to a desk no worker has and sits there typing, and walks back to the lobby when its turn is over. Its laptop shows its latest steps, and for admins **I** (or E on one standing) opens a read-only **👀 Watch** window that streams its session live, subagents in tabs. Workers come first, so hiring at a visitor's desk moves the visitor. Read-only; `--no-visitors` turns them off.
+- **Handoffs and the review table.** On a floor whose repository keeps its work as tickets (`work/<id>/ticket.md`: front matter and a chain log of handoffs), a visitor that hands a ticket on walks a folder over to whoever takes it next and gives it to them face to face, each seated visitor has an in-tray of the tickets waiting on its role, and a review table by the meeting room holds what's in review and what waits on the owner, with **E** to read them. Read-only, and only on a floor whose files are in that format.
 
-See [docs/features.md](docs/features.md) and [docs/how-it-works.md](docs/how-it-works.md) for both.
+See [docs/features.md](docs/features.md) and [docs/how-it-works.md](docs/how-it-works.md) for all three.
 
 ## Install and update
 

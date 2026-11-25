@@ -61,6 +61,7 @@ import { installTelescope } from './features/telescope';
 import { installTv } from './features/tv';
 import { installVisitors } from './features/visitors';
 import { installVisitorWatch } from './features/visitor-watch';
+import { installHandoffs } from './features/handoffs';
 import { installVoice } from './features/voice';
 import { installWaiting } from './features/waiting';
 import { installWalking } from './features/walking';
@@ -175,6 +176,7 @@ installGong(ctx, { burstOver: parts.views.burstOver, workerViews: parts.views.wo
 installSubagents(ctx);
 parts.visitors = installVisitors(ctx, parts);
 parts.visitorWatch = installVisitorWatch(ctx, parts);
+parts.handoffs = installHandoffs(ctx, parts);
 
 parts.hintbar = installHintBar(ctx, core, parts);
 parts.emotes = installEmotes(ctx, { personOf });

@@ -106,6 +106,8 @@ export function installVisitors(ctx: Ctx, parts: Pick<Parts, 'visitorWatch'>) {
   const size = new THREE.Vector3();
   const footstep = (x: number, y: number, z: number) => sound.stepAt(x, z, y);
   const listed = () => store.visitors.visitors.slice(0, VISITOR_SPOTS.length);
+  /** Visitors lent out for an errand (see errands below): nothing here moves them, or redraws their card, until they're given back. */
+  const lent = new Set<string>();
 
   /** Off the desk it was on, shut, till its visitor sits down again: it keeps the one for as long as it's listed. */
   function putAway(laptop: Laptop) {
@@ -265,6 +267,7 @@ export function installVisitors(ctx: Ctx, parts: Pick<Parts, 'visitorWatch'>) {
   function drop(id: string) {
     const view = views.get(id);
     if (!view) return;
+    lent.delete(id);
     leave(view, true);
     if (view.laptop) {
       putAway(view.laptop);
@@ -320,6 +323,8 @@ export function installVisitors(ctx: Ctx, parts: Pick<Parts, 'visitorWatch'>) {
       const moved = isNew || goal !== view.goal || (!goal && spot !== view.spot);
       view.goal = goal;
       view.spot = spot;
+      // Out on an errand: it goes where it's to be once it's back (see errands).
+      if (lent.has(v.id)) continue;
       // A desk walled up under it: there's no walking out of that.
       const walled = !!view.desk && !seatBuilt(view.desk.def.id);
       const desk = goalDesk(view);
@@ -365,6 +370,10 @@ export function installVisitors(ctx: Ctx, parts: Pick<Parts, 'visitorWatch'>) {
     for (const view of views.values()) {
       const { model, it } = view;
       const w = view.walk;
+      if (lent.has(view.id)) {
+        it.x = model.root.position.x;
+        it.z = model.root.position.z;
+      }
       if (w) {
         const waiting = w.wait > 0;
         if (stepWalk(model, w, dt, footstep)) {
@@ -432,10 +441,78 @@ export function installVisitors(ctx: Ctx, parts: Pick<Parts, 'visitorWatch'>) {
     },
   });
 
+  /**
+   * Lending a visitor out for an errand (features/handoffs walks one over to hand a ticket on): while
+   * it's lent, sync and the tick leave it be, and given back it sets off for its desk or its spot from
+   * wherever the errand left it, the way it would after any walk.
+   */
+  const errands = {
+    /** Where a visitor on this floor is (in its chair, or on its feet), and its model, to say something. */
+    where(id: string): { x: number; z: number; desk: DeskView | null; model: Worker } | undefined {
+      const view = views.get(id);
+      if (!view || !group.visible) return undefined;
+      if (view.desk) return { x: view.it.x, z: view.it.z, desk: view.desk, model: view.model };
+      const { position: p } = view.model.root;
+      return { x: p.x, z: p.z, desk: null, model: view.model };
+    },
+    /** The desks visitors are sitting at, by visitor. */
+    seated(): [string, DeskView][] {
+      return [...views.values()].filter((v) => v.desk && !lent.has(v.id)).map((v) => [v.id, v.desk!]);
+    },
+    /** Its model to walk about, standing on the floor (getting down off its chair first: `down`, from `seat`); none while it's in the middle of a hop or not out yet. */
+    /** Whether it can be lent right now (see lend): it's here, on its feet or in its chair, not half way through a hop. */
+    canLend(id: string): boolean {
+      const view = views.get(id);
+      const w = view?.walk;
+      return !!view && !lent.has(id) && group.visible && !w?.up && !w?.down && !(w && w.wait > 0);
+    },
+    lend(id: string): { model: Worker; seat: DeskView['def'] | null; down: Walk['down'] } | undefined {
+      const view = views.get(id);
+      if (!view || !errands.canLend(id)) return undefined;
+      const { root } = view.model;
+      let seat: DeskView['def'] | null = null;
+      let down: Walk['down'] = null;
+      if (view.desk) {
+        const from = view.desk;
+        const at = root.getWorldPosition(new THREE.Vector3());
+        const scale = root.getWorldScale(size).x;
+        leave(view, !!store.workerAtDesk(from.def.id));
+        root.position.copy(at);
+        root.rotation.set(0, from.def.rotY + Math.PI, 0);
+        root.scale.setScalar(scale);
+        seat = from.def;
+        down = { from: at, scale, p: 0 };
+      } else leave(view, false);
+      group.add(root);
+      lent.add(id);
+      whoIsWhere();
+      return { model: view.model, seat, down };
+    },
+    /** Back from its errand: off to where it's to be (there at once with `atOnce`), its card as it was. */
+    giveBack(id: string, atOnce = false) {
+      const view = views.get(id);
+      if (!lent.delete(id) || !view) return;
+      view.walk = null;
+      view.model.walking = false;
+      if (atOnce || !ctx.inOffice()) place(view);
+      else setOff(view);
+      const v = store.visitors.visitors.find((x) => x.id === id);
+      if (v) show(view, v);
+      whoIsWhere();
+    },
+    /** Puts its card back up, after something else said something over its head. */
+    refresh(id: string) {
+      const view = views.get(id);
+      const v = store.visitors.visitors.find((x) => x.id === id);
+      if (view && v && !lent.has(id)) view.model.setTask(visitorCard(v));
+    },
+  };
+
   return {
     /** Where each visitor on its way is, for the doors to open. */
     positions: (): readonly THREE.Vector3[] => walkers,
     /** The visitor sitting at `deskId`, if one is. */
     seatedAt: (deskId: string): string | undefined => [...views.values()].find((view) => view.desk?.def.id === deskId)?.id,
+    errands,
   };
 }

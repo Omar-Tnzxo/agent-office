@@ -145,6 +145,8 @@ export class Visitors {
   private timer?: NodeJS.Timeout;
   private origins = new Origins();
   private byFloor = new Map<string, Visitor[]>();
+  /** The folders each floor's visitors work in, the one written to last first (see folders). */
+  private cwds = new Map<string, string[]>();
   private sent = new Map<string, string>();
   private busy = false;
   /**
@@ -204,6 +206,11 @@ export class Visitors {
     return { visitors: (floor && this.byFloor.get(floor)) || [] };
   }
 
+  /** The folders `floor`'s visitors work in, the one whose session wrote last first: where its tickets are freshest (see server/tickets/). */
+  folders(floor: string): string[] {
+    return this.cwds.get(floor) ?? [];
+  }
+
   /** Looks over the projects folder once, and tells each floor whose visitors changed. */
   async look(now = Date.now()): Promise<void> {
     if (this.busy || this.opts.off) return;
@@ -220,6 +227,7 @@ export class Visitors {
         .flatMap((scanner) => scanner.scan((id) => this.workers.has(id), now))
         .filter((s) => !seen.has(s.id) && !!seen.add(s.id));
       const next = new Map<string, Visitor[]>();
+      const cwds = new Map<string, Sighting[]>();
       for (const s of sightings) {
         const cwd = s.facts.cwd;
         const origin = cwd && !floors.some((f) => inside(cwd, f.dir)) ? await this.origins.of(cwd, now) : undefined;
@@ -228,7 +236,9 @@ export class Visitors {
         const list = next.get(where.floor) ?? [];
         list.push(visitorOf(s, where.lobby));
         next.set(where.floor, list);
+        if (cwd && !where.lobby) cwds.set(where.floor, [...(cwds.get(where.floor) ?? []), s]);
       }
+      this.cwds = new Map([...cwds].map(([floor, list]) => [floor, [...new Set(list.sort((a, b) => b.seenAt - a.seenAt).map((s) => s.facts.cwd!))]]));
       this.byFloor = new Map([...next].map(([floor, list]) => [floor, list.sort((a, b) => this.since(a.id) - this.since(b.id) || a.id.localeCompare(b.id)).slice(0, MAX_VISITORS)]));
       const listed = new Set([...this.byFloor.values()].flat().map((v) => v.id));
       this.targets = new Map(sightings.filter((s) => listed.has(s.id)).map((s) => [s.id, { file: s.file, subagents: s.subagents }]));

@@ -42,6 +42,7 @@ import type { installTelescope } from '../features/telescope';
 import type { installTv } from '../features/tv';
 import type { installVisitors } from '../features/visitors';
 import type { installVisitorWatch } from '../features/visitor-watch';
+import type { installHandoffs } from '../features/handoffs';
 import type { installVoice } from '../features/voice';
 import type { installWaiting } from '../features/waiting';
 import type { installWalking } from '../features/walking';
@@ -125,6 +126,7 @@ export interface Parts {
   seating: Made<typeof installSeating>;
   visitors: Made<typeof installVisitors>;
   visitorWatch: Made<typeof installVisitorWatch>;
+  handoffs: Made<typeof installHandoffs>;
   emotes: Made<typeof installEmotes>;
   talk: Made<typeof installVoice>;
   hud: Made<typeof installHud>;
