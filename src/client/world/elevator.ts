@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ELEVATOR, ELEVATOR_CAR, ELEVATOR_FRONT, FLOOR, SLAB, STREET_Y, WALL_HEIGHT, streetBelow } from '../../shared/layout';
-import { mesh, roundedBox, textPlane, toon } from './toon';
+import { t } from '../i18n';
+import { mesh, phrasePlane, roundedBox, textPlane, toon, type Plane } from './toon';
 import type { Collider, Interactable } from './types';
 import type { Fixture } from './office/fixture';
 
@@ -23,8 +24,8 @@ export interface Elevator {
   readonly open: boolean;
   /** Whether the doors have finished moving. */
   readonly settled: boolean;
-  /** The sign over the doors, and the display inside: which floor this is. */
-  setSign(text: string): void;
+  /** The sign over the doors, and the display inside: which floor this is. A phrase (read with `t`) follows a switch of language. */
+  setSign(text: string | (() => string)): void;
   /** Stands it on the floor at `y`: the garage's goes further down the higher your floor is. */
   setFloor(y: number): void;
   update(dt: number): void;
@@ -146,17 +147,21 @@ export function buildElevator(height = WALL_HEIGHT): Elevator {
 
   // What floor this is: a sign over the doors, facing the room.
   let sign: ReturnType<typeof textPlane> | null = null;
-  const setSign = (text: string) => {
+  const setSign = (text: string | (() => string)) => {
     if (sign) {
       group.remove(sign);
       sign.material.map?.dispose();
       sign.material.dispose();
       sign.geometry.dispose();
     }
-    sign = textPlane(text, { bg: '#2b2d42', color: '#fffaf3', size: 64, border: '#fffaf3' });
-    const { width: sw, height: sh } = sign.geometry.parameters;
     // As big as fits over the doors (in the garage, under its low ceiling too).
-    sign.scale.multiplyScalar(Math.min(1.6, (width + 0.6) / sw, (header - 0.2) / sh));
+    const fit = (s: Plane) => {
+      const { width: sw, height: sh } = s.geometry.parameters;
+      s.scale.setScalar(Math.min(1.6, (width + 0.6) / sw, (header - 0.2) / sh));
+    };
+    const opts = { bg: '#2b2d42', color: '#fffaf3', size: 64, border: '#fffaf3' };
+    sign = typeof text === 'string' ? textPlane(text, opts) : phrasePlane(text, opts, fit);
+    if (typeof text === 'string') fit(sign);
     sign.position.set(x, doorHeight + Math.min(0.75, header / 2), front + 0.03);
     group.add(sign);
   };
@@ -238,7 +243,7 @@ export const elevator: Fixture<'elevator' | 'setProjectName'> = (site) => {
  */
 export const garageLift: Fixture<'garageLift'> = () => {
   const built = buildElevator(-SLAB - STREET_Y);
-  built.setSign('🛗 Garage');
+  built.setSign(() => t('world.garageLift'));
   return {
     group: built.group,
     colliders: built.colliders,

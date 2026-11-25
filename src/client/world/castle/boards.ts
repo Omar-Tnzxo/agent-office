@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { BOARD_KEYS, type BoardKey, type MapPlan } from '../../../shared/maps';
 import type { Interactable } from '../types';
-import { mesh, textPlane } from '../toon';
+import { mesh, phrasePlane } from '../toon';
+import { boardWords } from '../words';
 import type { Kit } from './kit';
 import { box } from './shapes';
 
@@ -22,7 +23,7 @@ export function buildBoards(kit: Kit, plan: MapPlan): Record<BoardKey, THREE.Mes
     face.position.z = 0.07;
     g.add(face);
     faces[k] = face;
-    const label = textPlane(bd.label, { bg: '#efe3c2', color: '#3b2618', size: 64, border: '#6b4526' });
+    const label = phrasePlane(boardWords(bd.label), { bg: '#efe3c2', color: '#3b2618', size: 64, border: '#6b4526' });
     label.scale.multiplyScalar(1.15);
     label.position.set(0, bd.height / 2 + 0.55, 0.06);
     g.add(label);

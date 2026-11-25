@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { AIRLOCK, HULL, type AirlockPlan } from '../../../shared/maps';
 import { canvasTexture } from '../texture';
-import { mesh, textPlane } from '../toon';
+import { mesh, phrasePlane } from '../toon';
 import { box, placed, type Kit } from './kit';
 import { wallFrame } from './shell';
 
@@ -66,7 +66,7 @@ export function buildAirlock(kit: Kit): AirlockView | undefined {
   band.position.set(0, h + 0.14, -0.16);
   band.rotation.y = Math.PI;
   at.add(band);
-  const sign = textPlane('⚠️ Airlock', { bg: '#2a0f12', color: '#ffd7d7', border: '#d7263d', size: 56 });
+  const sign = phrasePlane('world.station.airlock', { bg: '#2a0f12', color: '#ffd7d7', border: '#d7263d', size: 56 });
   sign.scale.multiplyScalar(0.85);
   sign.position.set(0, h + 0.72, -0.06);
   sign.rotation.y = Math.PI;

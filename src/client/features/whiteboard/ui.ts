@@ -5,6 +5,7 @@ import './ui.css';
 import type { ServerMsg } from '../../../shared/protocol';
 import { byIndex } from '../../../shared/whiteboard';
 import type { Net } from '../../net';
+import { t } from '../../i18n';
 import { store } from '../../state';
 import { h, openModal, toast, type Modal } from '../../ui/dom';
 import type { WhiteboardApp } from './whiteboard-app';
@@ -39,11 +40,11 @@ let redrawBoard = () => {};
 export function openWhiteboard(net: Net) {
   if (open) return;
   const floor = store.floor;
-  if (!floor) return toast('Take the elevator to a floor first', 'warn');
+  if (!floor) return toast(t('desks.whiteboard.noFloor'), 'warn');
   const people = h('div.wb-people');
-  const close = h('button.btn.close', { 'aria-label': 'Close', title: 'Close (Esc)' }, '✕');
-  const host = h('div.wb-host', {}, h('div.wb-loading', {}, '✏️ Getting the markers out…'));
-  const el = h('div.wb-window', { role: 'dialog', 'aria-label': 'Whiteboard' }, h('header', {}, h('h2', {}, '📝 Whiteboard'), people, close), host);
+  const close = h('button.btn.close', { 'aria-label': t('common.close'), title: t('common.closeEsc') }, '✕');
+  const host = h('div.wb-host', {}, h('div.wb-loading', {}, t('desks.whiteboard.loading')));
+  const el = h('div.wb-window', { role: 'dialog', 'aria-label': t('desks.palette.whiteboard') }, h('header', {}, h('h2', {}, t('desks.whiteboard.title')), people, close), host);
   // Esc first gets you out of whatever you're doing in Excalidraw (typing, drawing, a menu, a tool),
   // then lets go of what's selected, and once there's nothing left, closes the window.
   const onKey = (e: KeyboardEvent) => {
@@ -80,7 +81,7 @@ export function openWhiteboard(net: Net) {
       host.replaceChildren();
       board.app = m.mountWhiteboard(host, (msg) => net.send(msg), `${store.project?.name ?? 'office'} whiteboard`);
     },
-    () => host.replaceChildren(h('div.wb-loading', {}, "Couldn't load the whiteboard. Check your connection and open it again.")),
+    () => host.replaceChildren(h('div.wb-loading', {}, t('desks.whiteboard.loadFailed'))),
   );
 }
 
@@ -90,8 +91,8 @@ function renderPeople() {
   const others = store.drawing.filter((id) => id !== store.you).flatMap((id) => store.peers.get(id) ?? []);
   open.people.replaceChildren(
     ...(others.length
-      ? [h('span.wb-live', {}, 'LIVE'), ...others.map((p) => h('span.wb-person', { title: `${p.name} is drawing` }, h('span.dot', { style: `background:${p.color}` }), p.name))]
-      : [h('span.wb-alone', {}, 'Just you for now. Anyone on this floor can join in.')]),
+      ? [h('span.wb-live', {}, t('desks.whiteboard.live')), ...others.map((p) => h('span.wb-person', { title: t('desks.whiteboard.isDrawing', { name: p.name }) }, h('span.dot', { style: `background:${p.color}` }), p.name))]
+      : [h('span.wb-alone', {}, t('desks.whiteboard.alone'))]),
   );
 }
 

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BARK_EVERY_S, BARK_FOR_S, DOG_COATS, dogAt, dogBreed, legSeconds, type DogAct, type DogBreed, type DogState } from '../../../shared/dog';
 import type { Theme } from '../../../shared/protocol';
 import { paintCoat } from './coat';
+import { t } from '../../i18n';
 import { dogAntlers, dogBatWings, dogRedNose, dogScarf, dogWitchHat } from '../../world/costumes';
 import { loadModel, type Model } from '../../world/models';
 import type { Interactable } from '../../world/types';
@@ -256,21 +257,21 @@ export class Dog {
     const s = this.state;
     if (!s) return '';
     const moving = performance.now() < this.arriveAt;
-    const w = s.workerId ? (workerName(s.workerId) ?? 'a worker') : 'a worker';
-    if (s.following) return `following ${personName(s.following) ?? 'someone'}`;
+    const w = s.workerId ? (workerName(s.workerId) ?? t('toys.dog.aWorker')) : t('toys.dog.aWorker');
+    if (s.following) return t('toys.dog.following', { name: personName(s.following) ?? t('toys.dog.someone') });
     switch (s.act) {
       case 'bark':
-        return moving ? `running to ${w}, who needs input` : `barking at ${w}: needs input`;
+        return t(moving ? 'toys.dog.runningTo' : 'toys.dog.barking', { name: w });
       case 'nap':
-        return moving ? 'off for a nap' : `napping under ${w}'s desk`;
+        return moving ? t('toys.dog.offNap') : t('toys.dog.napping', { name: w });
       case 'wag':
-        return s.petBy ? `wagging at ${s.petBy}` : 'wagging';
+        return s.petBy ? t('toys.dog.waggingAt', { name: s.petBy }) : t('toys.dog.wagging');
       case 'lie':
-        return moving ? 'trotting to the lounge' : 'lounging';
+        return t(moving ? 'toys.dog.toLounge' : 'toys.dog.lounging');
       case 'sniff':
-        return moving ? 'trotting about' : 'sniffing around';
+        return t(moving ? 'toys.dog.trotting' : 'toys.dog.sniffing');
       case 'sit':
-        return 'sitting';
+        return t('toys.dog.sitting');
       default:
         return '';
     }

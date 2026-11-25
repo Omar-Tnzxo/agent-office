@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { WHITEBOARD } from '../../../shared/layout';
+import { onLang, t } from '../../i18n';
+import { dirFor, FONT } from '../../i18n/canvas';
 import { mesh, roundedBox, textPlane, toon } from '../../world/toon';
 import type { Collider, Interactable } from '../../world/types';
 import type { Fixture } from '../../world/office/fixture';
@@ -13,7 +15,6 @@ const INK = '#2b2d42';
 const PX = 512;
 /** Clear space around a drawing on the face, in pixels. */
 const PAD = 40;
-const FONT = 'Nunito, ui-rounded, system-ui, sans-serif';
 
 export interface WhiteboardStand {
   group: THREE.Group;
@@ -79,16 +80,22 @@ export function buildWhiteboard(): WhiteboardStand {
   const eraserFelt = mesh(new THREE.BoxGeometry(0.19, 0.015, 0.075), toon('#6c757d'), 0.62, trayY + 0.015, 0.09, false);
   group.add(eraserFelt);
 
-  const plaque = textPlane('📝 Whiteboard', { bg: '#fffaf3', size: 48 });
-  plaque.scale.multiplyScalar(0.55);
-  plaque.position.set(0, bottom + height + 0.2, 0.05);
-  group.add(plaque);
+  let plaque = textPlane(t('desks.whiteboard.title'), { bg: '#fffaf3', size: 48 });
+  const hangPlaque = () => {
+    plaque.scale.multiplyScalar(0.55);
+    plaque.position.set(0, bottom + height + 0.2, 0.05);
+    group.add(plaque);
+  };
+  hangPlaque();
 
   const colliders: Collider[] = [{ minX: x - post - 0.1, maxX: x + post + 0.1, minZ: z - 0.48, maxZ: z + 0.48, top: bottom + height + 0.35 }];
   const interactable: Interactable = { kind: 'whiteboard', x, z: z + 1.7, radius: 2.3 };
   group.userData.interact = interactable;
 
+  /** What's drawn on it now, to put back after a switch of language redraws the empty board's words. */
+  let shown: HTMLCanvasElement | null = null;
   const show = (drawing: HTMLCanvasElement | null) => {
+    shown = drawing;
     const W = canvas.width;
     const H = canvas.height;
     g.fillStyle = '#ffffff';
@@ -108,14 +115,28 @@ export function buildWhiteboard(): WhiteboardStand {
       g.fillStyle = '#b8c0c8';
       g.textAlign = 'center';
       g.textBaseline = 'middle';
+      const title = t('desks.whiteboard.empty');
+      const sub = t('desks.whiteboard.emptyHint');
       g.font = `900 120px ${FONT}`;
-      g.fillText('Draw together ✏️', W / 2, H / 2 - 70);
+      dirFor(g, title);
+      g.fillText(title, W / 2, H / 2 - 70);
       g.font = `700 64px ${FONT}`;
-      g.fillText('Walk up and press E — everyone on this floor sees it live', W / 2, H / 2 + 70);
+      dirFor(g, sub);
+      g.fillText(sub, W / 2, H / 2 + 70);
     }
     texture.needsUpdate = true;
   };
   show(null);
+  // A switch of language: the plaque and the empty board's words in the new one.
+  onLang(() => {
+    group.remove(plaque);
+    plaque.geometry.dispose();
+    plaque.material.map?.dispose();
+    plaque.material.dispose();
+    plaque = textPlane(t('desks.whiteboard.title'), { bg: '#fffaf3', size: 48 });
+    hangPlaque();
+    show(shown);
+  });
 
   return { group, colliders, interactable, show, fit: { width: canvas.width - PAD * 2, height: canvas.height - PAD * 2 } };
 }

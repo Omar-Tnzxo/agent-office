@@ -10,6 +10,7 @@ import type { CoreState } from '../../core/ctx';
 import type { Parts } from '../../core/parts';
 import { NextUp, waitingInOrder, waitingLabel } from '../../nextup';
 import { waitingOnSomeone } from '../../notify';
+import { t } from '../../i18n';
 import { store } from '../../state';
 import { openChanges } from '../../ui/changes';
 import { Compass, type Bearing } from '../../ui/compass';
@@ -34,12 +35,12 @@ export function installWaiting(ctx: Ctx, core: CoreState, parts: Pick<Parts, 'wo
     nextToast?.remove();
     if (!w || !goToWorker(w.id)) {
       const other = store.floors.find((f) => f.id !== store.floor && f.waiting > 0);
-      nextToast = toast(other ? `🛗 Nobody's waiting on this floor. ${other.waiting} on the ${other.name} floor: take the elevator` : '👍 Nobody is waiting on you');
+      nextToast = toast(other ? t('desks.next.otherFloor', { n: other.waiting, floor: other.name }) : t('desks.next.nobody'));
       return;
     }
     const waiting = waitingInOrder(store.workers.values());
-    const of = waiting.length > 1 ? ` (${waiting.findIndex((x) => x.id === w.id) + 1} of ${waiting.length})` : '';
-    nextToast = toast(`${w.status === 'needs_input' ? `🙋 ${w.name} needs you` : `✅ ${w.name} is done`}${of}. E opens its terminal`);
+    const of = waiting.length > 1 ? t('desks.next.of', { i: waiting.findIndex((x) => x.id === w.id) + 1, n: waiting.length }) : '';
+    nextToast = toast(t(w.status === 'needs_input' ? 'desks.next.needsYou' : 'desks.next.done', { name: w.name, of }));
   }
 
   /** Puts you behind worker `id`, looking over its shoulder, with any window closed. False when there's no getting there (you're between floors, or it's gone). */

@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { CREEK, LOOP, LOOP_HALF, LOOP_LENGTH, LOOP_PAVED, PLACES, STREET_END, STREET_Z, type Place } from '../../../shared/scenic';
 import { roadTexture } from '../outside';
 import { tilingCanvasTexture } from '../texture';
-import { mesh, textPlane, toon } from '../toon';
+import { t } from '../../i18n';
+import { mesh, phrasePlane, toon, type Plane } from '../toon';
 import { G, beside, box, distToLine, flat, flatMesh, indexAt, smooth, stretch, strip, type ScenicKit } from './kit';
 
 /** What the rest of the loop takes from the road: its asphalt, and where the creek crosses it. */
@@ -92,7 +93,7 @@ export function buildRoad(kit: ScenicKit): Road {
 }
 
 /** A wooden sign on two posts, `text` on its face, facing `rotY` (its face toward +z turned by that). */
-function signpost(into: THREE.Group, labels: THREE.Group, x: number, z: number, rotY: number, text: string, width = 5) {
+function signpost(into: THREE.Group, labels: THREE.Group, x: number, z: number, rotY: number, text: string | (() => string), width = 5) {
   const g = new THREE.Group();
   const wood = toon('#7f5539');
   for (const sx of [-1, 1]) g.add(mesh(box(0.16, 3, 0.16), wood, sx * (width / 2 - 0.4), 1.5, 0));
@@ -100,9 +101,9 @@ function signpost(into: THREE.Group, labels: THREE.Group, x: number, z: number, 
   g.position.set(x, G, z);
   g.rotation.y = rotY;
   into.add(g);
-  const face = textPlane(text, { color: '#3d2b1f', size: 64 });
-  const w = (face.geometry.parameters as { width: number }).width;
-  face.scale.setScalar(Math.min(1.9, (width - 0.4) / w));
+  // A place's name stays as it is; the way to the loop is a phrase, sized again when the language switches.
+  const fit = (f: Plane) => f.scale.setScalar(Math.min(1.9, (width - 0.4) / f.geometry.parameters.width));
+  const face = phrasePlane(typeof text === 'string' ? () => text : text, { color: '#3d2b1f', size: 64 }, fit);
   face.position.set(x + Math.sin(rotY) * 0.09, G + 2.45, z + Math.cos(rotY) * 0.09);
   face.rotation.y = rotY;
   labels.add(face);
@@ -121,19 +122,17 @@ export function buildSigns(kit: ScenicKit) {
     g.rotation.y = Math.PI;
     parts.meadow.add(g);
     colliders.push({ minX: 20.6, maxX: 27.4, minZ: 36.8, maxZ: 37.2, bottom: G, top: G + 5.6 });
-    const title = textPlane('🏎️ SCENIC LOOP', { color: '#ffd166', size: 72 });
+    const title = phrasePlane('world.scenic.title', { color: '#ffd166', size: 72 });
     title.scale.setScalar(1.35);
     title.position.set(24, G + 4.75, 36.85);
     title.rotation.y = Math.PI;
-    const sub = textPlane('🌾 farm · 🌲 pines · 🏔️ mountains · 🏖️ beach — 1.4 km, either way ⟷', { color: '#f1faee', size: 44 });
-    const w = (sub.geometry.parameters as { width: number }).width;
-    sub.scale.setScalar(7.8 / w);
+    const sub = phrasePlane('world.scenic.sub', { color: '#f1faee', size: 44 }, (s) => s.scale.setScalar(7.8 / s.geometry.parameters.width));
     sub.position.set(24, G + 3.55, 36.85);
     sub.rotation.y = Math.PI;
     labels.add(title, sub);
   }
-  signpost(parts.meadow, labels, STREET_END - 14, 20.2, -Math.PI / 2, '🏔️ Scenic Loop ⟶', 4.6);
-  signpost(parts.meadow, labels, -STREET_END + 14, 20.2, Math.PI / 2, '⟵ Scenic Loop 🏖️', 4.6);
+  signpost(parts.meadow, labels, STREET_END - 14, 20.2, -Math.PI / 2, () => t('world.scenic.east'), 4.6);
+  signpost(parts.meadow, labels, -STREET_END + 14, 20.2, Math.PI / 2, () => t('world.scenic.west'), 4.6);
 
   // At the start of each stretch, a sign on the right (going round clockwise), facing the traffic.
   for (const place of ['farm', 'forest', 'mountains', 'beach', 'coast'] as Place[]) {

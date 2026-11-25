@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { FloorPalette } from '../../../shared/floors';
+import { dirFor } from '../../i18n/canvas';
 import { toon } from '../toon';
 
 // The castle's pictures: stone, flagstones and boards to tile over its walls, floors and roof,
@@ -189,11 +190,15 @@ export function paintBanner(g: CanvasRenderingContext2D, w: number, h: number, c
     g.fillStyle = '#f7e7b4';
     g.textAlign = 'center';
     g.textBaseline = 'middle';
+    // The motto is the floor's name, which may be Arabic: Cairo has only Arabic letters (see
+    // styles/arabic.css), so it draws those and leaves the rest to the serif.
+    const serif = "Cairo, Georgia, 'Times New Roman', serif";
     let size = w * 0.13;
-    g.font = `900 ${size}px Georgia, 'Times New Roman', serif`;
+    g.font = `900 ${size}px ${serif}`;
+    dirFor(g, motto);
     while (g.measureText(motto).width > w * 0.8 && size > 10) {
       size *= 0.9;
-      g.font = `900 ${size}px Georgia, 'Times New Roman', serif`;
+      g.font = `900 ${size}px ${serif}`;
     }
     g.fillText(motto, cx, h * 0.62);
   }

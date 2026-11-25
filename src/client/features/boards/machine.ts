@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import type { MachineState } from '../../../shared/protocol';
 import { officeFull } from '../../../shared/machine';
+import { lang, t, tn } from '../../i18n';
+import { dirFor, FONT } from '../../i18n/canvas';
 
-const FONT = 'Nunito, ui-rounded, system-ui, sans-serif';
 const INK = '#1b1d2e';
 const MUTED = '#9aa0b8';
 
@@ -37,7 +38,7 @@ export class MachineTexture {
   }
 
   render(s: MachineState) {
-    const key = JSON.stringify(s);
+    const key = JSON.stringify([lang(), s]);
     if (key === this.drawn) return;
     this.drawn = key;
     const g = this.ctx;
@@ -51,29 +52,30 @@ export class MachineTexture {
     g.textAlign = 'left';
     g.fillStyle = '#ffffff';
     g.font = `900 40px ${FONT}`;
-    g.fillText('🖥️ This machine', 30, 62);
+    say(g, t('desks.machine.title'), 30, 62);
     const full = officeFull(s);
-    const status = !s.memTotal ? ['…', MUTED] : s.pressure ? ['⚠️ Under pressure', '#ef476f'] : full ? ['🚫 Office full', '#ffd166'] : ['✅ Room to hire', '#06d6a0'];
+    const status = !s.memTotal ? ['…', MUTED] : s.pressure ? [t('desks.machine.pressure'), '#ef476f'] : full ? [t('desks.machine.full'), '#ffd166'] : [t('desks.machine.room'), '#06d6a0'];
     g.font = `800 30px ${FONT}`;
+    dirFor(g, status[0]);
     const tw = g.measureText(status[0]).width;
     g.fillStyle = status[1];
     roundRect(g, W - 30 - tw - 32, 24, tw + 32, 50, 25);
     g.fill();
     g.fillStyle = INK;
     g.textAlign = 'center';
-    g.fillText(status[0], W - 30 - (tw + 32) / 2, 60);
+    say(g, status[0], W - 30 - (tw + 32) / 2, 60);
 
     const memPct = s.memTotal ? Math.round((s.memUsed / s.memTotal) * 100) : 0;
-    this.panel(30, 100, 415, 'CPU', s.cpu, s.cores ? `${s.cores} core${s.cores === 1 ? '' : 's'}` : '', s.history.map(([c]) => c));
-    this.panel(475, 100, 415, 'Memory', memPct, s.memTotal ? `${fmtGb(s.memUsed)} of ${fmtGb(s.memTotal)}` : '', s.history.map(([, m]) => m));
+    this.panel(30, 100, 415, 'CPU', s.cpu, s.cores ? tn('desks.machine.cores', s.cores) : '', s.history.map(([c]) => c));
+    this.panel(475, 100, 415, t('desks.machine.memory'), memPct, s.memTotal ? t('desks.machine.memOf', { used: fmtGb(s.memUsed), total: fmtGb(s.memTotal) }) : '', s.history.map(([, m]) => m));
 
     // Footer: the workers, one pip each, against the limit.
     const y = 440;
     g.textAlign = 'left';
     g.font = `800 32px ${FONT}`;
     g.fillStyle = '#ffffff';
-    const label = s.limit === undefined ? `👷 ${s.workers} worker${s.workers === 1 ? '' : 's'} · no limit` : `👷 ${s.workers} of ${s.limit} workers`;
-    g.fillText(label, 30, y + 12);
+    const label = s.limit === undefined ? tn('desks.machine.noLimit', s.workers) : t('desks.machine.workersOf', { workers: s.workers, limit: s.limit });
+    say(g, label, 30, y + 12);
     if (s.limit !== undefined) {
       const x0 = 30 + g.measureText(label).width + 28;
       const room = W - 30 - x0;
@@ -97,13 +99,13 @@ export class MachineTexture {
     g.textAlign = 'left';
     g.fillStyle = MUTED;
     g.font = `800 28px ${FONT}`;
-    g.fillText(name, x + 20, y + 42);
+    say(g, name, x + 20, y + 42);
     g.fillStyle = color;
     g.font = `900 84px ${FONT}`;
-    g.fillText(`${pct}%`, x + 20, y + 124);
+    say(g, `${pct}%`, x + 20, y + 124);
     g.fillStyle = MUTED;
     g.font = `700 24px ${FONT}`;
-    g.fillText(sub, x + 20, y + 160);
+    say(g, sub, x + 20, y + 160);
     // The graph: 0-100%, the newest reading on the right.
     const gx = x + 20;
     const gy = y + 180;
@@ -134,6 +136,12 @@ export class MachineTexture {
     g.lineWidth = 4;
     g.stroke();
   }
+}
+
+/** Draws `text` at (x, y) in its own reading direction. */
+function say(g: CanvasRenderingContext2D, text: string, x: number, y: number) {
+  dirFor(g, text);
+  g.fillText(text, x, y);
 }
 
 function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {

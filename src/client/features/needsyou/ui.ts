@@ -1,4 +1,5 @@
 import './ui.css';
+import { onLang, t } from '../../i18n';
 import { h } from '../../ui/dom';
 import type { BannerText } from './logic';
 
@@ -24,7 +25,12 @@ export class Banner {
     hooks: BannerHooks,
   ) {
     this.go = h('button.needs-you-go', { type: 'button', onclick: () => this.shown && hooks.go(this.shown.id) });
-    const x = h('button.needs-you-x', { type: 'button', 'aria-label': 'Hide', title: 'Hide until another worker needs you', onclick: () => hooks.hide() }, '✕');
+    const x = h('button.needs-you-x', { type: 'button', 'aria-label': t('common.hide'), title: t('desks.needsYou.hideTitle'), onclick: () => hooks.hide() }, '✕');
+    // The ✕'s words are set once: a switch of language puts them in the new one.
+    onLang(() => {
+      x.setAttribute('aria-label', t('common.hide'));
+      x.title = t('desks.needsYou.hideTitle');
+    });
     this.el = h('div.needs-you.hidden', { role: 'status', 'aria-live': 'polite' }, this.go, x);
     this.edge = h('div.needs-you-flash', { 'aria-hidden': 'true' });
     this.edge.addEventListener('animationend', () => this.edge.classList.remove('on'));
@@ -33,12 +39,12 @@ export class Banner {
   }
 
   /** What it says now, or null to put it away. It's only redrawn when it would read differently, so a click never lands on a button that's just been swapped. */
-  show(text: BannerText | null) {
+  show(text: BannerText | null, name = '') {
     if (text?.key === this.shown?.key) return;
     this.shown = text;
     this.el.classList.toggle('hidden', !text);
     if (!text) return;
-    this.go.title = `Go to ${text.title.replace(/ needs you$/, '')}'s desk (N)`;
+    this.go.title = t('desks.needsYou.goTitle', { name });
     this.go.replaceChildren(
       h('span.needs-you-icon', { 'aria-hidden': 'true' }, '🙋'),
       h('span.needs-you-text', {}, h('strong', {}, text.title), text.detail ? h('span.needs-you-ask', {}, text.detail) : null),

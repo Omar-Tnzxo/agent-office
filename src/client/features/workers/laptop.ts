@@ -3,6 +3,8 @@ import { FLAG_BOLD, FLAG_DIM, FLAG_INVERSE, RGB_FLAG, type Run } from '../../../
 import { mesh, roundedBox, toon } from '../../world/toon';
 import { TERM_THEME } from '../../ui/termtheme';
 import type { ScreenState } from '../../state/store';
+import { t } from '../../i18n';
+import { dirFor, FONT, hasRtl } from '../../i18n/canvas';
 
 
 const BASE16 = [
@@ -67,12 +69,16 @@ export function paintScreen(ctx: CanvasRenderingContext2D, w: number, h: number,
   ctx.fillStyle = TERM_THEME.background;
   ctx.fillRect(0, 0, w, h);
   if (!s) {
+    const text = placeholder ?? t('desks.laptop.booting');
     ctx.fillStyle = '#6c7086';
-    ctx.font = `700 ${Math.round(h / 12)}px ui-monospace, Menlo, monospace`;
+    // Arabic in the office's canvas font (Cairo); the terminal's own look otherwise.
+    ctx.font = `700 ${Math.round(h / 12)}px ${hasRtl(text) ? FONT : 'ui-monospace, Menlo, monospace'}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(placeholder ?? 'booting…', w / 2, h / 2);
+    dirFor(ctx, text);
+    ctx.fillText(text, w / 2, h / 2);
     ctx.textAlign = 'left';
+    ctx.direction = 'ltr';
     return;
   }
   const pad = w * 0.02;
@@ -130,7 +136,7 @@ export class Laptop {
   private drawnVersion = -1;
   private paintedAt = 0;
   private openT = 0;
-  private placeholder = 'booting…';
+  private placeholder = t('desks.laptop.booting');
   /** Anything else of its own to free (the tome's page). */
   private owned: THREE.Material[] = [];
 

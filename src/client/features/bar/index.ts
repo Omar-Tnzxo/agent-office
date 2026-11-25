@@ -10,6 +10,7 @@ import { djFrame } from '../../dnb';
 import { store } from '../../state';
 import { openBar } from './ui';
 import { toast } from '../../ui/dom';
+import { t } from '../../i18n';
 import { DrunkVision } from './drunk';
 import type { Rooftop } from '../rooftop/world';
 
@@ -51,15 +52,7 @@ export function installBar(ctx: Ctx, deps: BarDeps) {
   requestAnimationFrame(() => queueDrunkVisionWarmup());
 
   /** What the bartender says as they slide it over. */
-  const CHEERS: Record<string, string> = {
-    beer: 'Cheers! 🍻',
-    wine: 'Salud!',
-    martini: 'Shaken, not stirred',
-    maitai: 'Aloha!',
-    shot: 'Salt, shot, lime… whoa',
-    mojito: 'Fresh and minty',
-    water: 'Good call. Stay hydrated',
-  };
+  const cheers = (id: DrinkId) => t(`toys.bar.cheers.${id}` as const);
 
   /** E at the bar: the menu. */
   function showBar() {
@@ -76,21 +69,21 @@ export function installBar(ctx: Ctx, deps: BarDeps) {
     r.serve(ctx.player.pos.z);
     ctx.sound.pour(r.pourAt);
     queueDrunkVisionWarmup();
-    if (cut) toast("🙅 The bartender slides you a water instead: you've had enough", 'warn');
+    if (cut) toast(t('toys.bar.cutWater'), 'warn');
     setTimeout(() => {
       if (!ctx.upTop()) return;
       drunkVision.prepare();
       booze.drink(drink, performance.now() / 1000);
       deps.reach();
       if (ctx.player.view === 'first') ctx.hands.sip();
-      if (!cut) toast(`${drink.emoji} ${drink.name}. ${CHEERS[drink.id] ?? 'Enjoy!'}`);
+      if (!cut) toast(`${drink.emoji} ${t(`toys.drink.${drink.id}` as const)}. ${cheers(drink.id)}`);
     }, 1500);
   }
 
   ctx.messages.on('horn', (msg) => {
     if (!ctx.upTop()) return;
     ctx.sound.horn();
-    if (msg.by !== store.profile.name) toast(`📯 ${msg.by} blew the air horn!`);
+    if (msg.by !== store.profile.name) toast(t('toys.bar.hornBy', { name: msg.by }));
   });
   let lastHorn = 0;
   /** E at the DJ booth: the air horn, for everyone on the roof. */
@@ -105,7 +98,7 @@ export function installBar(ctx: Ctx, deps: BarDeps) {
     reach: 3.5,
     hint: () => {
       const cut = booze.cutOff(performance.now() / 1000);
-      return { k: String(cut), parts: [hintTitle('🍸 Sky Bar'), aside(cut ? "you've had enough" : 'drinks on the house'), key('E', cut ? 'Ask for water' : 'Order a drink')] };
+      return { k: String(cut), parts: [hintTitle(t('toys.bar.title')), aside(t(cut ? 'toys.bar.hadEnough' : 'toys.bar.onTheHouse')), key('E', t(cut ? 'toys.bar.askWater' : 'toys.bar.order'))] };
     },
     use: onE(() => showBar()),
   });
@@ -113,8 +106,8 @@ export function installBar(ctx: Ctx, deps: BarDeps) {
     reach: 6,
     hint: () => {
       const f = djFrame(deps.djAt());
-      const what = f.part === 'drop' ? '🔥 the drop' : f.part === 'build' ? 'building up…' : f.part === 'breakdown' ? 'the breakdown' : 'mixing in the next track';
-      return { k: what, parts: [hintTitle('🎧 DJ Merge Conflict'), aside(`drum & bass · ${what}`), key('E', '📯 Air horn!')] };
+      const what = t(f.part === 'drop' ? 'toys.dj.drop' : f.part === 'build' ? 'toys.dj.build' : f.part === 'breakdown' ? 'toys.dj.breakdown' : 'toys.dj.mixing');
+      return { k: what, parts: [hintTitle('🎧 DJ Merge Conflict'), aside(t('toys.dj.what', { what })), key('E', t('toys.dj.horn'))] };
     },
     use: onE(() => blowHorn()),
   });
@@ -125,7 +118,7 @@ export function installBar(ctx: Ctx, deps: BarDeps) {
   let nextSip = 0;
   /** The drink in your hand everyone else was last told about. */
   let shownDrink: DrinkId | null = null;
-  const FEELINGS = ['😌 You feel sober again', '🥴 You’re feeling a little tipsy', '🌀 Whoa… is the city spinning?', '🤪 You’re wasted. Maybe have some water'];
+  const FEELINGS = ['toys.bar.sober', 'toys.bar.tipsy', 'toys.bar.spinning', 'toys.bar.wasted'] as const;
 
   /** Every frame: how drunk you are, the glass in your hand, hiccups and the odd sip. */
   function drinking(now: number) {
@@ -148,7 +141,7 @@ export function installBar(ctx: Ctx, deps: BarDeps) {
     }
     const stage = booze.stage(secs);
     if (stage !== feeling) {
-      if (stage > feeling || stage === 0) toast(FEELINGS[stage], stage >= 3 ? 'warn' : 'info');
+      if (stage > feeling || stage === 0) toast(t(FEELINGS[stage]), stage >= 3 ? 'warn' : 'info');
       feeling = stage;
     }
     if (amount > 0.5 && now > nextHiccup) {

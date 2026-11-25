@@ -8,6 +8,7 @@ import type { PeerInfo } from '../../../shared/protocol';
 import type { Ctx } from '../../core/context';
 import type { CoreState } from '../../core/ctx';
 import type { Parts } from '../../core/parts';
+import { t } from '../../i18n';
 import { store } from '../../state';
 import { closeAllModals, toast } from '../../ui/dom';
 import { wayTo } from './walkto';
@@ -26,16 +27,17 @@ export function installWalking(ctx: Ctx, core: CoreState, parts: Pick<Parts, 'wo
   function walkTo(id: string) {
     const p = store.peers.get(id);
     if (!p || id === store.you) return;
-    if (p.lite) return void toast(`📱 ${p.name} is on the 2D view, not anywhere in the office itself`);
+    if (p.lite) return void toast(t('desks.walk.lite', { name: p.name }));
     if (!store.onMyFloor(p) && !p.floor) return;
     if (!parts.cars.getOut()) return;
     if (player.seat) parts.seating.standUp();
     ctx.activities.stopAll('walk');
     errand = null;
     walkingTo = { id, replanAt: 0 };
-    if (store.onMyFloor(p)) toast(`🚶 Walking over to ${p.name}`);
+    if (store.onMyFloor(p)) toast(t('desks.walk.over', { what: p.name }));
     else {
-      toast(`🛗 Taking the elevator to ${p.name}, on the ${store.floors.find((f) => f.id === p.floor)?.name ?? 'other'} floor`);
+      const floor = store.floors.find((f) => f.id === p.floor)?.name;
+      toast(floor ? t('desks.walk.elevator', { name: p.name, floor }) : t('desks.walk.elevatorOther', { name: p.name }));
       parts.travel.ride(p.floor!, true);
     }
   }
@@ -70,7 +72,7 @@ export function installWalking(ctx: Ctx, core: CoreState, parts: Pick<Parts, 'wo
     if (player.seat) return stopWalking();
     const p = store.peers.get(walkingTo.id);
     if (!p || !store.onMyFloor(p)) {
-      toast(p ? `${p.name} left the floor before you got there` : 'They left the office', 'warn');
+      toast(p ? t('desks.walk.leftFloor', { name: p.name }) : t('desks.walk.leftOffice'), 'warn');
       return stopWalking();
     }
     const at = whereIs(p);
@@ -93,7 +95,7 @@ export function installWalking(ctx: Ctx, core: CoreState, parts: Pick<Parts, 'wo
     // As near as the way goes (they're behind a desk, or on the couch): that'll do.
     if (Math.hypot(at.x - player.pos.x, at.z - player.pos.z) < 3) return arrivedAt(at);
     if (why === 'stuck') {
-      toast(`🚧 Couldn't find a way over to ${p.name}`, 'warn');
+      toast(t('desks.walk.stuck', { name: p.name }), 'warn');
       stopWalking();
     } else walkingTo.replanAt = 0;
   };
@@ -114,7 +116,7 @@ export function installWalking(ctx: Ctx, core: CoreState, parts: Pick<Parts, 'wo
     ctx.activities.stopAll('errand');
     if (walkingTo) stopWalking();
     errand = { at, what, face, then };
-    toast(`🚶 Walking over to ${what}`);
+    toast(t('desks.walk.over', { what }));
     const to = { x: at.x, y: at.y ?? 0, z: at.z };
     // As walkTick does: round the office's rooms (and its back office), or round what's in the way on a map of its own.
     player.walkPath(inOffice() ? wayTo(player.pos, to, officeWing()) : ctx.world().nav.route([player.pos.x, player.pos.z], [to.x, to.z]).slice(1).map(([x, z]) => ({ x, z })));
@@ -124,7 +126,7 @@ export function installWalking(ctx: Ctx, core: CoreState, parts: Pick<Parts, 'wo
     const e = errand!;
     errand = null;
     if (why === 'cancelled') return;
-    if (why === 'stuck') toast(`🚧 Couldn't find a way over to ${e.what}, so here it is from where you are`, 'warn');
+    if (why === 'stuck') toast(t('desks.walk.stuckHere', { what: e.what }), 'warn');
     else if (e.face) arrivedAt(e.face);
     else stopWalking();
     e.then();

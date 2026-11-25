@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GREEN, ROUND, landing, meterAt, targetFrame, throwSpot, type BarGame, type Toss } from '../../../shared/bargames';
 import { isTyping, type PlayerController } from '../../player';
 import { $, h, modalOpen } from '../../ui/dom';
+import { t } from '../../i18n';
 import type { Person } from '../../world/character';
 
 // Stepping up to the dart board's oche or the axe lane's line, up on the roof (E there): you stand
@@ -99,7 +100,7 @@ export class Thrower {
     this.sweet = h('span.throw-sweet');
     this.mark = h('span.throw-last');
     this.infoEl = h('div.throw-info');
-    this.panel = h('div.throw.panel.hidden', { id: 'throw', 'aria-label': 'Throwing' }, this.titleEl, h('div.throw-meter', {}, this.sweet, this.fill, this.mark), this.infoEl);
+    this.panel = h('div.throw.panel.hidden', { id: 'throw', 'aria-label': t('toys.throw.panel') }, this.titleEl, h('div.throw-meter', {}, this.sweet, this.fill, this.mark), this.infoEl);
     $('hud').append(this.panel);
     window.addEventListener('keydown', (e) => this.key(e, true));
     window.addEventListener('keyup', (e) => this.key(e, false));
@@ -322,11 +323,11 @@ export class Thrower {
     this.sweet.style.left = `${(g.at - g.width / 2) * 100}%`;
     this.sweet.style.width = `${g.width * 100}%`;
     const next = this.stage === 'aim' || this.stage === 'wind' ? this.next : this.n;
-    const title = game === 'darts' ? `🎯 Darts · dart ${next} of ${ROUND.darts}` : `🪓 Axe throwing · axe ${next} of ${ROUND.axe}`;
+    const title = game === 'darts' ? t('toys.throw.dartOf', { n: next, of: ROUND.darts }) : t('toys.throw.axeOf', { n: next, of: ROUND.axe });
     const text = `${title}|${this.info}`;
     if (text === this.shown) return;
     this.shown = text;
     this.titleEl.textContent = title;
-    this.infoEl.textContent = this.info || (game === 'darts' ? 'Aim with the mouse · hold Space and let go in the green' : 'Let go in the green to stick it');
+    this.infoEl.textContent = this.info || t(game === 'darts' ? 'toys.throw.dartsHow' : 'toys.throw.axeHow');
   }
 }

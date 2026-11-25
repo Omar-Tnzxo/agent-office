@@ -7,6 +7,7 @@ import { aside, hintTitle, key, onE } from '../../core/hint';
 import { Hanger } from './controller';
 import { store } from '../../state';
 import { h, toast } from '../../ui/dom';
+import { t } from '../../i18n';
 import type { Gallery } from './world';
 
 // The kinds of thing you can use that this defines (see InteractKinds in world/types.ts).
@@ -51,7 +52,7 @@ export function installHanging(ctx: Ctx, deps: HangingDeps) {
     reach: 9,
     hint: (it) => {
       const d = store.decor.find((x) => x.id === it.decorId);
-      return { k: `${d?.title}|${d?.by}`, parts: [hintTitle(`🖼️ ${d?.title || 'A picture'}`), d ? aside(`hung by ${d.by}`) : '', key('E', 'Look closer')] };
+      return { k: `${d?.title}|${d?.by}`, parts: [hintTitle(`🖼️ ${d?.title || t('toys.hang.aPicture')}`), d ? aside(t('toys.hang.hungBy', { name: d.by })) : '', key('E', t('toys.hang.lookCloser'))] };
     },
     use: onE((it) => {
       if (it.decorId) hanger.view(it.decorId);
@@ -85,15 +86,15 @@ export function installHanging(ctx: Ctx, deps: HangingDeps) {
   function renderHangHint(el: HTMLElement) {
     const spot = hanger.spot;
     ctx.hint.draw(el, `hang|${hanger.moving}|${spot ? spot.ok : '-'}`, () => {
-      const title = !spot ? '🖼️ Aim at a wall' : !spot.ok ? "🚫 Something's in the way" : hanger.moving ? '🖼️ Moving a picture' : '🖼️ Hanging a picture';
-      return [h('span.title', {}, title), key('Click', 'Hang'), key('Scroll', 'Size'), key('Esc', 'Cancel')];
+      const title = t(!spot ? 'toys.hang.aimWall' : !spot.ok ? 'toys.hang.inTheWay' : hanger.moving ? 'toys.hang.moving' : 'toys.hang.hanging');
+      return [h('span.title', {}, title), key(t('toys.key.click'), t('toys.hang.hang')), key(t('toys.key.scroll'), t('toys.hang.size')), key('Esc', t('common.cancel'))];
     });
   }
 
   /** F: hang a picture on a wall of this floor. There are no walls for them up on the roof. */
   function startHanging() {
-    if (ctx.upTop()) return toast('No walls to hang pictures on up here — take the elevator down to a floor', 'warn');
-    if (!ctx.inOffice()) return toast(`${ctx.plan().icon} ${ctx.plan().name}'s walls are hung already — pictures go up in the office`, 'warn');
+    if (ctx.upTop()) return toast(t('toys.hang.noWalls'), 'warn');
+    if (!ctx.inOffice()) return toast(`${ctx.plan().icon} ${t('toys.hang.mapWalls', { map: ctx.plan().name })}`, 'warn');
     hanger.start();
   }
 

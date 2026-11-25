@@ -8,6 +8,7 @@ import { aside, hintTitle, key, onE } from '../../core/hint';
 import { store } from '../../state';
 import type { Arcade } from '../arcade/ui';
 import { toast } from '../../ui/dom';
+import { t } from '../../i18n';
 import type { Interactable } from '../../world/types';
 
 // The kinds of thing you can use that this defines (see InteractKinds in world/types.ts).
@@ -68,7 +69,7 @@ export function installSeating(ctx: Ctx, deps: SeatingDeps) {
     }
     const place = freePlace(seat);
     if (!place) {
-      toast(`No room on that ${seat.label.replace(/^\S+ /, '').toLowerCase()} right now`, 'warn');
+      toast(t('toys.seat.noRoom', { seat: seat.label.replace(/^\S+ /, '').toLowerCase() }), 'warn');
       return;
     }
     player.sit(place);
@@ -88,7 +89,7 @@ export function installSeating(ctx: Ctx, deps: SeatingDeps) {
       ctx.player.stand();
       // On your feet as far as everyone's concerned (the office still has you where you sat before).
       gotUp();
-      toast(`${msg.by} got there first`, 'warn');
+      toast(t('toys.seat.first', { name: msg.by }), 'warn');
     }
   });
 
@@ -112,11 +113,11 @@ export function installSeating(ctx: Ctx, deps: SeatingDeps) {
       if (!seat) return { k: '', parts: [] };
       if (ctx.player.seat?.seatId === seat.id) {
         const tv = !!seat.tv && tvShowing();
-        const use = tv ? 'Watch the TV' : seat.game ? 'Play Minesweeper' : seat.bar ? 'Order a drink' : '';
-        return { k: `${seat.id}|sitting|${tv}`, parts: [hintTitle(seat.label), aside('sitting'), ...(use ? [key('E', use), key('W A S D', 'Get up')] : [key('E', 'Get up')])] };
+        const use = tv ? t('toys.seat.tv') : seat.game ? t('toys.seat.mines') : seat.bar ? t('toys.bar.order') : '';
+        return { k: `${seat.id}|sitting|${tv}`, parts: [hintTitle(seat.label), aside(t('toys.seat.sitting')), ...(use ? [key('E', use), key('W A S D', t('hud.getUp'))] : [key('E', t('hud.getUp'))])] };
       }
       const full = !freePlace(seat);
-      return { k: `${seat.id}|${full}`, parts: [hintTitle(seat.label), seat.game ? aside('💣 Minesweeper on the monitor') : '', full ? aside('no room') : key('E', 'Sit down')] };
+      return { k: `${seat.id}|${full}`, parts: [hintTitle(seat.label), seat.game ? aside(t('toys.seat.onMonitor')) : '', full ? aside(t('toys.seat.full')) : key('E', t('toys.seat.sit'))] };
     },
     use: onE((it) => {
       if (it.seatId) useSeat(it.seatId);

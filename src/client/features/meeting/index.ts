@@ -3,6 +3,7 @@ import { MEETING_PATTERNS, meetingStage } from '../../../shared/meetings';
 import type { Ctx } from '../../core/context';
 import { aside, hintTitle, key, onE } from '../../core/hint';
 import type { Parts } from '../../core/parts';
+import { t } from '../../i18n';
 import { store } from '../../state';
 import { clip } from '../../ui/dom';
 import { openMeeting, type MeetingPreset } from '../../ui/meeting';
@@ -35,8 +36,11 @@ export function installMeeting(ctx: Ctx, parts: Pick<Parts, 'waiting' | 'actions
     hint: () => {
       const m = store.meeting.current;
       const p = m && MEETING_PATTERNS[m.pattern];
-      const what = !m || !p ? 'free' : m.status === 'running' ? `${p.icon} ${p.label} · ${meetingStage(m)}` : `${p.icon} ${p.label} ${m.status === 'done' ? 'done ✅' : 'stopped ⛔'}`;
-      return { k: what, parts: [hintTitle('🤝 Meeting room'), aside(clip(what, 50)), key('E', m?.status === 'running' ? 'See how it’s going' : m ? 'See it / call a meeting' : 'Call a meeting')] };
+      const what = !m || !p ? t('desks.meeting.free') : m.status === 'running' ? `${p.icon} ${p.label} · ${meetingStage(m)}` : `${p.icon} ${p.label} ${t(m.status === 'done' ? 'desks.meeting.done' : 'desks.meeting.stopped')}`;
+      return {
+        k: what,
+        parts: [hintTitle(t('desks.meetingSign.room')), aside(clip(what, 50)), key('E', t(m?.status === 'running' ? 'desks.meeting.seeHow' : m ? 'desks.meeting.seeOrCall' : 'desks.hint.callMeeting'))],
+      };
     },
     use: onE(() => showMeeting()),
   });

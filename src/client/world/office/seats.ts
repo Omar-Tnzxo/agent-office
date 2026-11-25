@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { BEANBAGS, DESKS, DESK_SIZE, FLOOR, KIOSK, SEATING_BY_ID, STATIONS, STATION_AGENT, deskSeat, type DeskDef, type StationKind } from '../../../shared/layout';
 import { deskPoint } from '../../../shared/nav';
-import { mesh, roundedBox, textPlane, toon } from '../toon';
+import { t } from '../../i18n';
+import { mesh, phrasePlane, roundedBox, toon } from '../toon';
 import type { Collider, DeskView, Interactable } from '../types';
 import type { Fixture } from './fixture';
 import { PALETTE, box } from './materials';
@@ -162,7 +163,7 @@ export function buildBeanbag(def: DeskDef, index: number): DeskView {
   return { def, group, laptopAnchor, seatAnchor, stage, chair: bag, vacancy, vacancyY };
 }
 
-const KIOSK_SIGN: Record<StationKind, string> = { issues: '📌 Ask me', pulls: '🔀 Ask me', queue: '📋 Ask me' };
+const KIOSK_ICON: Record<StationKind, string> = { issues: '📌', pulls: '🔀', queue: '📋' };
 
 /**
  * A board agent's kiosk: a little counter in its color with a sign on the front, and the agent standing
@@ -180,7 +181,7 @@ export function buildKiosk(def: DeskDef): DeskView {
   group.add(mesh(roundedBox(width - 0.16, height - 0.1, depth - 0.12, 0.06), color, 0, (height - 0.1) / 2 + 0.04, 0));
   group.add(mesh(roundedBox(width - 0.02, 0.06, depth + 0.02, 0.05), toon(PALETTE.ink), 0, 0.03, 0));
   group.add(mesh(roundedBox(width, 0.06, depth, 0.05), toon(PALETTE.desk), 0, height - 0.03, 0));
-  const sign = textPlane(KIOSK_SIGN[kind], { bg: '#fffaf3', size: 56 });
+  const sign = phrasePlane(() => t('world.askMe', { icon: KIOSK_ICON[kind] }), { bg: '#fffaf3', size: 56 });
   sign.scale.multiplyScalar(0.62);
   sign.position.set(0, height * 0.55, -(depth - 0.12) / 2 - 0.012);
   sign.rotation.y = Math.PI;

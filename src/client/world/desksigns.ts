@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { DESKS, DESK_BY_ID, DESK_SIZE, WALL_HEIGHT, WING_DESKS, type DeskDef } from '../../shared/layout';
 import { signInk, type DeskLabel } from '../../shared/floorplan';
+import { onLang } from '../i18n';
+import { dirFor, FONT } from '../i18n/canvas';
 import type { Fixture } from './office/fixture';
 import { mergeByMaterial, mesh, roundedBox, toon } from './toon';
 
@@ -22,13 +24,15 @@ for (const d of [...DESKS, ...WING_DESKS]) {
   const p = [...DESKS, ...WING_DESKS].find((e) => e !== d && Math.abs(e.x - d.x) < 0.01 && Math.abs(Math.abs(e.z - d.z) - DESK_SIZE.depth) < 0.01 && Math.abs(Math.cos(e.rotY) + Math.cos(d.rotY)) < 0.01);
   if (p) PARTNER.set(d.id, p.id);
 }
-const FONT = (size: number) => `800 ${size}px Nunito, ui-rounded, system-ui, sans-serif`;
+const signFont = (size: number) => `800 ${size}px ${FONT}`;
 
 /** The text, as large as fits on one line, else on two. */
 function fit(ctx: CanvasRenderingContext2D, text: string, maxW: number, maxH: number): { lines: string[]; size: number } {
   const words = text.split(' ');
+  // A sign's text is whatever someone wrote, so it may be Arabic: both lines read the way the whole does.
+  dirFor(ctx, text);
   for (let size = 200; size >= 64; size -= 6) {
-    ctx.font = FONT(size);
+    ctx.font = signFont(size);
     if (size * 1.05 <= maxH && ctx.measureText(text).width <= maxW) return { lines: [text], size };
     if (words.length < 2 || size * 2.1 > maxH) continue;
     // Split at the space that leaves the longer line shortest.
@@ -65,7 +69,8 @@ function paintFace(canvas: HTMLCanvasElement, label: DeskLabel) {
   ctx.stroke();
   ctx.globalAlpha = 1;
   const { lines, size } = fit(ctx, label.text, w - 120, h - 70);
-  ctx.font = FONT(size);
+  ctx.font = signFont(size);
+  dirFor(ctx, label.text);
   ctx.fillStyle = ink;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -148,13 +153,16 @@ export function buildDeskSigns(): DeskSigns {
     return !!desk && built(desk) && !labels[desk.id];
   };
 
-  // The office's font may still be on its way the first time a sign is painted.
-  void document.fonts?.ready.then(() => {
+  // The office's font may still be on its way the first time a sign is painted; and which way a sign
+  // mixing Arabic with English reads depends on the viewer's language (see textDir).
+  const repaint = () => {
     for (const h of hung.values()) {
       paintFace(h.canvas, h.label);
       h.tex.needsUpdate = true;
     }
-  });
+  };
+  void document.fonts?.ready.then(repaint);
+  onLang(repaint);
 
   return {
     group,

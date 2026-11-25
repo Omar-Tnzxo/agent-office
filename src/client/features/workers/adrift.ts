@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { adrift, adriftFrom, wasting, type Drift, type SendHomePlan } from '../../../shared/maps';
 import type { JailState, Prisoner } from '../../../shared/protocol';
+import { t, type TextKey } from '../../i18n';
 import { Worker } from '../../world/character';
 import type { AirlockView } from '../../world/station/airlock';
 
@@ -20,7 +21,20 @@ const MIDDLE = 0.45;
 /** How big they are: as they were at their seats. */
 export const ADRIFT_SCALE = 0.82;
 /** What they say, now and then, while there's breath in them and you're near enough to see. */
-const MUTTERS = ['🥶 so cold…', '👋 hello? anyone?', '🫁 …air?', '🌍 nice view, though', '😩 I can fix it, I swear', '📡 mayday… mayday…', '🧑‍🚀 should’ve worn a suit', '😵 …', '🎵 ground control to…', '📜 I’ll write the tests!'];
+const MUTTERS: TextKey[] = [
+  'desks.mutter.cold',
+  'desks.adrift.hello',
+  'desks.adrift.air',
+  'desks.adrift.view',
+  'desks.mutter.fixIt',
+  'desks.adrift.mayday',
+  'desks.adrift.suit',
+  'desks.mutter.dazed',
+  'desks.adrift.groundControl',
+  'desks.mutter.tests',
+];
+/** One of them, in the language now. */
+const aMutter = () => t(MUTTERS[Math.floor(Math.random() * MUTTERS.length)]);
 const EARSHOT = 34;
 
 const turn = new THREE.Euler();
@@ -128,7 +142,7 @@ export class Drifters {
     if (this.mutterIn > 0) return;
     this.mutterIn = 6 + Math.random() * 8;
     const near = [...this.out.values()].filter((d) => d.model.root.position.distanceTo(eye) < EARSHOT && !wasting(d.prisoner.at, now, this.plan!).dead);
-    near[Math.floor(Math.random() * near.length)]?.model.mutter(MUTTERS[Math.floor(Math.random() * MUTTERS.length)]);
+    near[Math.floor(Math.random() * near.length)]?.model.mutter(aMutter());
   }
 
   /** Nobody's out there (off to another floor, or another map). Whoever was on their way to the airlock is let go too. */

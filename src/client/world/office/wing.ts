@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { DESKS, DESK_SIZE, FLOOR, SLAB, WALL_HEIGHT, WALL_T, WING, WING_DESKS, deskSeat, wingMinZ, wingRowZ } from '../../../shared/layout';
+import { onLang, t } from '../../i18n';
+import { dirFor, FONT } from '../../i18n/canvas';
 import type { NightParts } from '../outside';
 import { mesh, roundedBox, toon } from '../toon';
 import { wingWindows } from '../tower';
@@ -52,10 +54,14 @@ function paintGrowSign(c: HTMLCanvasElement, level: number) {
   g.fillStyle = '#2b2d42';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.font = '800 88px Nunito, ui-rounded, system-ui, sans-serif';
-  g.fillText(full ? '🏢 As big as it gets' : '🚧 Room to grow', w / 2, h * 0.4);
-  g.font = '700 46px Nunito, ui-rounded, system-ui, sans-serif';
-  g.fillText(full ? 'The back office is built all the way out' : level ? 'Press E to go back another row: 2 more desks' : 'Press E to knock through: 2 more desks', w / 2, h * 0.68);
+  const head = t(full ? 'world.wing.full' : 'world.wing.grow');
+  const sub = t(full ? 'world.wing.fullSub' : level ? 'world.wing.more' : 'world.wing.knock');
+  g.font = `800 88px ${FONT}`;
+  dirFor(g, head);
+  g.fillText(head, w / 2, h * 0.4);
+  g.font = `700 46px ${FONT}`;
+  dirFor(g, sub);
+  g.fillText(sub, w / 2, h * 0.68);
 }
 
 /**
@@ -209,10 +215,14 @@ export function buildWing(group: THREE.Group, colliders: Collider[], interactabl
       tex.needsUpdate = true;
     },
   };
-  void document.fonts?.ready.then(() => {
+  // Painted again once the office's font is in, and in the viewer's language when it switches (the
+  // office is built once, so this lasts as long as the page).
+  const repaint = () => {
     paintGrowSign(canvas, Math.max(0, view.level));
     tex.needsUpdate = true;
-  });
+  };
+  void document.fonts?.ready.then(repaint);
+  onLang(repaint);
   view.set(0);
   return view;
 }

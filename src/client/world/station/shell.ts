@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { HATCH, HULL, wallOut, type WallOpening, type WallSide } from '../../../shared/maps';
 import type { Bounds, Pt } from '../../../shared/nav';
 import { canvasTexture, tilingCanvasTexture } from '../texture';
-import { mesh, textPlane } from '../toon';
+import { mesh, phrasePlane } from '../toon';
 import { Batch, PANEL, PLATE, box, lit, placed, tileBox, type Kit } from './kit';
 import { ceilingPanels, deckPlates, hullPanels, toonMap } from './textures';
 
@@ -168,7 +168,7 @@ export function buildShell(kit: Kit, pal: { hull: string; deck: string }): { doo
   band.position.set(0, h + 0.15, -0.16);
   band.rotation.y = Math.PI;
   frame.add(band);
-  const sign = textPlane('🚀 Docking port', { bg: '#0f1a26', color: '#cfeeff', border: '#3a5a78', size: 56 });
+  const sign = phrasePlane('world.station.dock', { bg: '#0f1a26', color: '#cfeeff', border: '#3a5a78', size: 56 });
   sign.scale.multiplyScalar(0.9);
   sign.position.set(0, h + 0.75, -0.06);
   sign.rotation.y = Math.PI;

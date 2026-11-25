@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { levelRoute, type SendHomePlace, type SendHomeStep } from '../../../shared/maps';
 import type { Pt } from '../../../shared/nav';
+import { t, type TextKey } from '../../i18n';
 import type { Worker } from '../../world/character';
 import type { Drifters } from './adrift';
 import { eject, shut } from './eject';
@@ -37,7 +38,7 @@ const FEET = 0.07;
 const BEHIND = 0.8;
 /** The most escorts out at once: anyone else sent home meanwhile waits for one. */
 const GUARDS = 4;
-const FAREWELLS = ['😢 bye, everyone', '🥲 it was fun', '📦 welp', '😞 cleaning out my desk', '🥺 but my PR…'];
+const FAREWELLS: TextKey[] = ['desks.bye.everyone', 'desks.bye.fun', 'desks.bye.welp', 'desks.bye.cleaning', 'desks.bye.myPr'];
 
 export class Sendoffs {
   private list: Sendoff[] = [];
@@ -207,7 +208,7 @@ export class Sendoffs {
       case 'pack': {
         // What it says next, if the script has it say something, or a farewell of its own.
         const next = s.steps[s.i + 1];
-        s.model.leave(next?.do === 'say' && next.who !== 'escort' ? '📦' : pick(FAREWELLS));
+        s.model.leave(next?.do === 'say' && next.who !== 'escort' ? '📦' : t(pick(FAREWELLS)));
         if (s.laptop) s.laptop.closing = true;
         return;
       }

@@ -14,6 +14,7 @@ import type { Ctx } from '../../core/context';
 import { seatBuilt } from '../../core/floors';
 import { aside, hintTitle } from '../../core/hint';
 import { noOutline } from '../../core/outline';
+import { labels, ltrText, onLang, t, tn } from '../../i18n';
 import { store } from '../../state';
 import { SubagentCrowd, Worker, subagentColor } from '../../world/character';
 import type { DeskView, Interactable } from '../../world/types';
@@ -41,12 +42,12 @@ const NOBODY: readonly Interactable[] = [];
 /** How many letters fit across a laptop's screen, at the size its one line is painted (see paintScreen). */
 const SCREEN_CHARS = 20;
 
-const APP: Record<VisitorApp, string> = {
-  desktop: '🖥️ Claude app',
-  cli: '⌨️ Terminal',
-  ide: '🧩 IDE',
-  other: '🤖 Claude Code',
-};
+const APP = labels<VisitorApp>({
+  desktop: 'desks.visitor.app.desktop',
+  cli: 'desks.visitor.app.cli',
+  ide: 'desks.visitor.app.ide',
+  other: 'desks.visitor.app.other',
+});
 
 interface VisitorView {
   id: string;
@@ -78,7 +79,7 @@ export function visitorCard(v: Visitor): { name: string; summary: string } {
 
 /** What a visitor's laptop says: there's no terminal behind it, only what the office read of its latest tool call. */
 function screenOf(v: Visitor): string {
-  const doing = v.status === 'needs_input' ? '⏳ waiting on you' : (v.activity ?? 'working…');
+  const doing = v.status === 'needs_input' ? t('desks.visitor.waitingOnYou') : (v.activity ?? t('desks.visitor.working'));
   return doing.length > SCREEN_CHARS ? `${doing.slice(0, SCREEN_CHARS - 1)}…` : doing;
 }
 
@@ -335,6 +336,8 @@ export function installVisitors(ctx: Ctx) {
     whoIsWhere();
   }
   store.on('visitors', sync);
+  // Their laptops' "waiting on you" (and the cards' bubbles) in the language now.
+  onLang(sync);
   // A worker hired at a visitor's desk, or a row of the back office walled up: it finds another, or goes back to the lobby.
   store.on('workers', sync);
   store.on('floorPlan', sync);
@@ -425,9 +428,9 @@ export function installVisitors(ctx: Ctx) {
     reach: 4,
     hint: (it) => {
       const v = store.visitors.visitors.find((x) => x.id === it.seatId);
-      if (!v) return { k: 'visitor', parts: [hintTitle('👋 A visitor')] };
-      const subs = v.subagentCount ? ` · ${v.subagentCount} subagent${v.subagentCount === 1 ? '' : 's'}` : '';
-      return { k: `visitor|${v.id}|${v.status}|${v.subagentCount}`, parts: [hintTitle(`👋 ${v.title}`), aside(`${APP[v.app]} · ${v.folder}${subs} · only to look at`)] };
+      if (!v) return { k: 'visitor', parts: [hintTitle(t('desks.visitor.aVisitor'))] };
+      const subs = v.subagentCount ? ` · ${tn('desks.visitor.subagents', v.subagentCount)}` : '';
+      return { k: `visitor|${v.id}|${v.status}|${v.subagentCount}`, parts: [hintTitle(`👋 ${v.title}`), aside(`${APP[v.app]} · ${ltrText(v.folder)}${subs} · ${t('desks.visitor.lookOnly')}`)] };
     },
     use: () => {},
   });

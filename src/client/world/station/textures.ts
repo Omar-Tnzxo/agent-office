@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { t } from '../../i18n';
+import { dirFor } from '../../i18n/canvas';
 import { toonUnique } from '../toon';
 import { shade } from './kit';
 
@@ -141,7 +143,8 @@ export function ceilingPanels(color: string): (g: CanvasRenderingContext2D) => v
   };
 }
 
-const READOUTS = ['ORBIT 412 KM', 'O₂ 98.6%', 'HULL OK', 'PRESSURE 101 kPa', 'SOLAR 84 kW', 'CREW ABOARD', 'AIRLOCK SEALED', 'COMMS LINKED', 'THRUST STANDBY', 'GRAVITY 1.0 G'];
+/** The read-outs a display picks from, in the viewer's language when it's painted (when the station is built). */
+const READOUTS = (['orbit', 'oxygen', 'hull', 'pressure', 'solar', 'crew', 'airlock', 'comms', 'thrust', 'gravity'] as const).map((k) => `world.readout.${k}` as const);
 
 /**
  * A display's telemetry, `w` by `h` pixels: a graph, a row of bars, a dial and a few read-outs, in
@@ -206,8 +209,15 @@ export function telemetry(seed: number, w: number, h: number, ink: string): (g: 
     g.fill();
     // Read-outs down the right.
     g.fillStyle = ink;
-    g.font = `700 ${Math.round(h * 0.075)}px ui-monospace, Menlo, monospace`;
+    // Cairo first for Arabic letters only (styles/arabic.css), and set by its left edge whichever way
+    // it reads, so Arabic stays right of the dial too.
+    g.font = `700 ${Math.round(h * 0.075)}px Cairo, ui-monospace, Menlo, monospace`;
     g.textBaseline = 'middle';
-    for (let i = 0; i < 3; i++) g.fillText(READOUTS[Math.floor(rand() * READOUTS.length)], w * 0.64, h * (0.64 + i * 0.12));
+    g.textAlign = 'left';
+    for (let i = 0; i < 3; i++) {
+      const line = t(READOUTS[Math.floor(rand() * READOUTS.length)]);
+      dirFor(g, line);
+      g.fillText(line, w * 0.64, h * (0.64 + i * 0.12));
+    }
   };
 }

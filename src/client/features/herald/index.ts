@@ -9,6 +9,7 @@ import type { Parts } from '../../core/parts';
 import { repoChoices } from '../../shared/hiring';
 import { store } from '../../state';
 import { h, toast } from '../../ui/dom';
+import { t } from '../../i18n';
 import { openPrompt } from '../../ui/prompt';
 import { hiringPaused } from '../../ui/usage';
 
@@ -40,10 +41,10 @@ export function installHerald(ctx: Ctx, parts: Pick<Parts, 'place' | 'you' | 'ac
     const { actions, views } = parts;
     const h = plan().herald;
     if (!h || actions.officeIsFull()) return;
-    if (!actions.firstFreeSeat()) return toast(`${h.name}: every seat at the tables is taken — send someone home first`, 'warn');
+    if (!actions.firstFreeSeat()) return toast(t('toys.herald.full', { name: h.name }), 'warn');
     openPrompt({
-      title: `${plan().icon} ${h.name}: send out a worker`,
-      subtitle: `Say what it’s to do. A new worker runs off to a free seat and gets started${plan().lineup.length ? `, and comes back to line up${plan().throne ? ' before your throne' : ''} once it’s done or needs you` : ''}.`,
+      title: `${plan().icon} ${t('toys.herald.title', { name: h.name })}`,
+      subtitle: t(plan().lineup.length ? (plan().throne ? 'toys.herald.subThrone' : 'toys.herald.subLineup') : 'toys.herald.sub'),
       warning: pressureNote(store.machine),
       placeholder: h.ask,
       submitLabel: h.button,
@@ -54,7 +55,7 @@ export function installHerald(ctx: Ctx, parts: Pick<Parts, 'place' | 'you' | 'ac
       onSubmit: (text, o) => {
         // Whichever seat is free now (someone may have sat down while you were thinking).
         const deskId = views.heraldSeat();
-        if (!deskId) return toast('Every seat at the tables is taken now', 'warn');
+        if (!deskId) return toast(t('toys.herald.takenNow'), 'warn');
         views.heraldHires.set(deskId, { floor: store.floor, at: performance.now() });
         actions.hire(deskId, text || undefined, o.worktree, o.provider, o.model, o.effort, undefined, o.repos, 'herald');
       },
@@ -67,8 +68,8 @@ export function installHerald(ctx: Ctx, parts: Pick<Parts, 'place' | 'you' | 'ac
       const hd = plan().herald;
       const full = !parts.actions.firstFreeSeat();
       const m = store.machine;
-      const why = full ? 'every seat is taken' : officeFull(m) ? `🚫 Office full · ${m.workers} of ${m.limit} workers` : hiringPaused() ? '💸 Budget spent — hiring resumes tomorrow' : '';
-      return { k: `${hd?.name}|${why}`, parts: [hintTitle(`${plan().icon} ${hd?.name ?? 'Herald'}`), why ? h('span.cost', {}, why) : aside(hd?.says ?? ''), why ? '' : key('E', 'Send out a new worker')] };
+      const why = full ? t('toys.herald.everySeat') : officeFull(m) ? t('toys.herald.officeFull', { n: m.workers, limit: m.limit ?? 0 }) : hiringPaused() ? t('toys.budgetSpent') : '';
+      return { k: `${hd?.name}|${why}`, parts: [hintTitle(`${plan().icon} ${hd?.name ?? t('toys.herald.herald')}`), why ? h('span.cost', {}, why) : aside(hd?.says ?? ''), why ? '' : key('E', t('toys.herald.send'))] };
     },
     use: onE(() => hireFromHerald()),
   });

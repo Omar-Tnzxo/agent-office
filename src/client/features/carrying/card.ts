@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import type { CarriedIssue } from '../../../shared/protocol';
 import { NOTE_COLORS, PINS, wrap } from '../boards/world';
 import { toon, toonUnique } from '../../world/toon';
+import { dirFor, FONT } from '../../i18n/canvas';
 
 const W = 320;
 const H = 240;
-const FONT = 'Nunito, ui-rounded, system-ui, sans-serif';
 
 /**
  * An issue's sticky note, taken off the issues board: a thin card in the note's color, with the pin,
@@ -23,6 +23,8 @@ function issueCard(card: CarriedIssue, width: number): THREE.Mesh {
   g.font = `900 52px ${FONT}`;
   g.fillText(`#${card.issue}`, 22, 84);
   g.font = `700 28px ${FONT}`;
+  g.textAlign = 'left';
+  dirFor(g, card.title);
   wrap(g, card.title, W - 44, 4).forEach((line, i) => g.fillText(line, 22, 128 + i * 30));
   g.beginPath();
   g.arc(W / 2, 20, 12, 0, Math.PI * 2);

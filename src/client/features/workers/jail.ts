@@ -3,6 +3,7 @@ import { prisonSeat, wasting, type DungeonPlan, type SendHomePlan, type Spot } f
 import type { JailState, Prisoner } from '../../../shared/protocol';
 import { Worker } from '../../world/character';
 import type { DungeonView } from '../../world/dungeon';
+import { t, type TextKey } from '../../i18n';
 import { mesh, toon } from '../../world/toon';
 
 /*
@@ -16,7 +17,22 @@ import { mesh, toon } from '../../world/toon';
 /** How often (s) how far gone they are is worked out again: it changes over hours. */
 const REFRESH = 2;
 /** What they mutter, now and then, while you're down there with them. */
-const MUTTERS = ['🍞 …bread?', '💧 water…', '🙏 let me out', '😩 I can fix it, I swear', '🐀 hello, rat', '🥶 so cold…', '📜 I’ll write the tests!', '😵 …', '🎵 99 bugs in the code…', '🕯️ is it day?', '😢 I miss my desk', '🔑 psst… the key?'];
+const MUTTERS: TextKey[] = [
+  'desks.jail.bread',
+  'desks.jail.water',
+  'desks.jail.letOut',
+  'desks.mutter.fixIt',
+  'desks.jail.rat',
+  'desks.mutter.cold',
+  'desks.mutter.tests',
+  'desks.mutter.dazed',
+  'desks.jail.bugs',
+  'desks.jail.day',
+  'desks.jail.missDesk',
+  'desks.jail.key',
+];
+/** One of them, in the language now. */
+const aMutter = () => t(MUTTERS[Math.floor(Math.random() * MUTTERS.length)]);
 /** How close (m) you have to be to hear one. */
 const EARSHOT = 9;
 
@@ -163,7 +179,7 @@ export class Jail {
       this.mutterIn = 5 + Math.random() * 7;
       const near = [...this.inmates.values()].filter((m) => Math.hypot(m.seat.spot.x - eye.x, m.seat.spot.z - eye.z) < EARSHOT && !wasting(m.prisoner.at, this.now(), this.plan!).dead);
       const who = near[Math.floor(Math.random() * near.length)];
-      who?.model.mutter(MUTTERS[Math.floor(Math.random() * MUTTERS.length)]);
+      who?.model.mutter(aMutter());
     }
   }
 

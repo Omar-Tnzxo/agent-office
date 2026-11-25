@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { h, openModal, type Modal } from '../../ui/dom';
+import { onLang, t } from '../../i18n';
 import { H, Minesweeper, W } from './minesweeper';
 
 /** How much of the view (across or down, whichever runs out first) a screen fills while you play on it. */
@@ -80,6 +81,7 @@ export class Arcade {
     this.draw();
     // Canvas text only picks up the office's font once it has loaded.
     void document.fonts.ready.then(() => this.draw());
+    onLang(() => this.draw());
   }
 
   /** Anywhere between your view and the monitor: your first-person hands would cover the screen. */
@@ -97,13 +99,13 @@ export class Arcade {
     const game = this.game;
     // A finished game stays up on the monitor until the next player sits down to a fresh one.
     if (game.state === 'won' || game.state === 'lost') game.reset();
-    const board = h('canvas', { 'aria-label': 'Minesweeper board' });
-    const stop = h('button.btn', { type: 'button' }, '✕ Stop playing');
+    const board = h('canvas', { 'aria-label': t('toys.mines.board') });
+    const stop = h('button.btn', { type: 'button' }, t('toys.mines.stop'));
     const box = h(
       'div.arcade',
-      { role: 'dialog', 'aria-label': 'Minesweeper' },
+      { role: 'dialog', 'aria-label': t('toys.mines.name') },
       h('div.arcade-screen', {}, board),
-      h('div.arcade-bar', {}, h('span', {}, '💣 Minesweeper'), h('span.tip', {}, 'Click to dig · right-click to flag'), stop),
+      h('div.arcade-bar', {}, h('span', {}, `💣 ${t('toys.mines.name')}`), h('span.tip', {}, t('toys.mines.tip')), stop),
     );
 
     // Where the mouse is, in the game's 960×540.

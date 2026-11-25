@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BALCONY_DOOR, EXIT_DOOR, FLOOR, WALL_HEIGHT, WALL_T, WINDOWS, WING, type Opening, type Side } from '../../../shared/layout';
 import type { NightParts } from '../outside';
-import { mergeByMaterial, mesh, textPlane, toon } from '../toon';
+import { mergeByMaterial, mesh, phrasePlane, toon } from '../toon';
 import type { Collider } from '../types';
 import type { Fixture } from './fixture';
 import { GLASS, PALETTE, box, glassPane, onWall, type Looks } from './materials';
@@ -116,7 +116,7 @@ export function exitDoor(night: NightParts): { group: THREE.Group; door: Door } 
   hinge.add(leaf);
   g.add(hinge);
 
-  const exit = textPlane('EXIT', { bg: '#2a9d4b', color: '#ffffff', size: 64, border: '#ffffff' });
+  const exit = phrasePlane('world.exit', { bg: '#2a9d4b', color: '#ffffff', size: 64, border: '#ffffff' });
   exit.scale.multiplyScalar(0.7);
   exit.position.set(0, o.y1 + 0.35, -(WALL_T / 2 + 0.03));
   exit.rotation.y = Math.PI;

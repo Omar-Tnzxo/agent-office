@@ -4,6 +4,7 @@ import { aside, hintTitle, key, onE } from '../../core/hint';
 import { store } from '../../state';
 import { Cabinet } from './ui';
 import { clip } from '../../ui/dom';
+import { t } from '../../i18n';
 
 // The kinds of thing you can use that this defines (see InteractKinds in world/types.ts).
 declare module '../../world/types' {
@@ -29,12 +30,12 @@ export function installCabinet(ctx: Ctx, deps: CabinetDeps): Cabinet {
       const f = store.cabinetFrame;
       if (c.player && c.player.id !== store.you) {
         const who = c.player.name;
-        return { k: `${who}|${f?.score}`, parts: [hintTitle('🕹️ Arcade'), aside(`▶ ${clip(who, 24)} is playing${f ? ` · ${scoreText(f.score)}` : ''}`), key('E', 'Watch')] };
+        return { k: `${who}|${f?.score}`, parts: [hintTitle(t('toys.cab.arcade')), aside(`▶ ${t('toys.cab.playing', { name: clip(who, 24) })}${f ? ` · ${scoreText(f.score)}` : ''}`), key('E', t('toys.cab.watch'))] };
       }
       const left = cabinet.leftAt;
       const best = c.scores[0];
-      const about = left !== null ? `your game's paused at ${scoreText(left)}` : best ? `🏆 ${clip(best.name, 24)} · ${scoreText(best.score)}` : 'no high score yet';
-      return { k: `${left}|${best?.name}|${best?.score}`, parts: [hintTitle(`🕹️ ${GAME}`), aside(about), key('E', left !== null ? 'Carry on' : 'Play')] };
+      const about = left !== null ? t('toys.cab.paused', { score: scoreText(left) }) : best ? `🏆 ${clip(best.name, 24)} · ${scoreText(best.score)}` : t('toys.cab.noHigh');
+      return { k: `${left}|${best?.name}|${best?.score}`, parts: [hintTitle(`🕹️ ${GAME}`), aside(about), key('E', t(left !== null ? 'toys.cab.carryOn' : 'toys.play'))] };
     },
     use: onE(() => cabinet.play()),
   });

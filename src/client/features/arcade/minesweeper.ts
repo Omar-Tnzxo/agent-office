@@ -2,6 +2,9 @@
  * Minesweeper for the boss's monitor (ui.ts): the rules, and a painter that draws the whole
  * screen in fixed 960×540 units, so the same picture goes on the monitor and on the board you click.
  */
+import { t } from '../../i18n';
+import { dirFor, FONT } from '../../i18n/canvas';
+
 export const W = 960;
 export const H = 540;
 
@@ -13,7 +16,6 @@ const CELL = 52;
 const X0 = (W - COLS * CELL) / 2;
 const Y0 = 62;
 const FACE = { x: W / 2, y: 31, r: 23 };
-const FONT = "Nunito, ui-rounded, 'SF Pro Rounded', system-ui, sans-serif";
 /** The classic colors for 1 to 8 mines around. */
 const NUMBER = ['', '#1f6feb', '#2a9d4b', '#e63946', '#3a3a9f', '#9d2a2a', '#1a9c9c', '#2b2d42', '#7a6f65'];
 
@@ -139,9 +141,9 @@ export class Minesweeper {
       g.fillRect(0, 150, W, 230);
       g.fillStyle = '#f1ede4';
       g.font = `900 92px ${FONT}`;
-      g.fillText('MINESWEEPER', W / 2, 240);
+      say(g, t('toys.mines.title'), W / 2, 240);
       g.font = `800 28px ${FONT}`;
-      g.fillText('Sit in the boss’s chair and press E to play', W / 2, 318);
+      say(g, t('toys.mines.sitToPlay'), W / 2, 318);
     } else if (this.over) {
       const won = this.state === 'won';
       g.fillStyle = won ? 'rgba(42, 157, 75, 0.92)' : 'rgba(230, 57, 70, 0.92)';
@@ -149,9 +151,9 @@ export class Minesweeper {
       g.fill();
       g.fillStyle = '#ffffff';
       g.font = `900 40px ${FONT}`;
-      g.fillText(won ? `Cleared in ${Math.floor(this.ms / 1000)}s!` : 'Boom!', W / 2, H / 2 - 8);
+      say(g, won ? t('toys.mines.cleared', { s: Math.floor(this.ms / 1000) }) : t('toys.mines.boom'), W / 2, H / 2 - 8);
       g.font = `800 20px ${FONT}`;
-      g.fillText(idle ? 'Sit down and press E to play again' : 'Click the face for a new game', W / 2, H / 2 + 26);
+      say(g, t(idle ? 'toys.mines.sitAgain' : 'toys.mines.newGame'), W / 2, H / 2 + 26);
     }
   }
 
@@ -232,6 +234,13 @@ function readout(g: CanvasRenderingContext2D, x: number, text: string) {
   g.fillStyle = '#ff5a5f';
   g.font = `900 28px ${FONT}`;
   g.fillText(text, x + 75, 33);
+}
+
+/** Words on the screen, in the direction they read. */
+function say(g: CanvasRenderingContext2D, text: string, x: number, y: number) {
+  dirFor(g, text);
+  g.fillText(text, x, y);
+  g.direction = 'ltr';
 }
 
 /** A red ✕ over a flag that was wrong. */
