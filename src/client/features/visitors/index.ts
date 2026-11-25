@@ -1,18 +1,27 @@
 /**
  * Visitors: Claude Code sessions the office didn't start (the Claude desktop app, a terminal, an
- * IDE), waiting by the elevator of the floor whose repository they work in (or of the building's
- * first floor, its lobby, when no floor's is theirs), each with a card saying what it's called and
- * what it's on, and its subagents round it. Only to look at: nothing here can drive them, and the
- * office never writes to their files (see server/visitors/).
+ * IDE), on the floor whose repository they work in (or on the building's first floor, its lobby,
+ * when no floor's is theirs), each with a card saying what it's called and what it's on, and its
+ * subagents round it. One at work on the floor's own repository walks from the elevator to a desk no
+ * worker has and sits there typing, and walks back to its spot by the elevator once its turn is over;
+ * the rest stand in the lobby. Only to look at: nothing here can drive them, a worker hired at a
+ * visitor's desk gets it, and the office never writes to their files (see server/visitors/).
  */
 import * as THREE from 'three';
+import { deskPoint, type Pt } from '../../../shared/nav';
 import type { Visitor, VisitorApp } from '../../../shared/protocol';
 import type { Ctx } from '../../core/context';
+import { seatBuilt } from '../../core/floors';
 import { aside, hintTitle } from '../../core/hint';
 import { noOutline } from '../../core/outline';
 import { store } from '../../state';
 import { SubagentCrowd, Worker, subagentColor } from '../../world/character';
+import type { DeskView, Interactable } from '../../world/types';
+import { SHOWN as CHAIR_SHOWN, SIZE as CHAIR_SIZE, spot as chairSpot } from '../subagents';
+import { Laptop } from '../workers/laptop';
+import { assignDesks, assignSpots, visitorDesks, wantsDesk } from './seats';
 import { VISITOR_SPOTS, subagentSpot } from './spots';
+import { FEET, SPACING, stepWalk, walkAlong, type Walk } from './walk';
 
 // The kinds of thing you can use that this defines (see InteractKinds in world/types.ts).
 declare module '../../world/types' {
@@ -21,8 +30,16 @@ declare module '../../world/types' {
   }
 }
 
-/** How big a visitor's subagents are, next to it. */
+/** How big a visitor's subagents are, next to it, in the lobby. */
 const SUBAGENT_SIZE = 0.5;
+/** How close (meters) you stop a visitor jumping, and how far you go before it starts again: a worker's (see features/workers/views.ts). */
+const HOLD_NEAR = 4;
+const HOLD_LEAVE = 5;
+/** Seconds for a shut laptop to shrink away. */
+const LAPTOP_GONE = 0.3;
+const NOBODY: readonly Interactable[] = [];
+/** How many letters fit across a laptop's screen, at the size its one line is painted (see paintScreen). */
+const SCREEN_CHARS = 20;
 
 const APP: Record<VisitorApp, string> = {
   desktop: '🖥️ Claude app',
@@ -32,10 +49,25 @@ const APP: Record<VisitorApp, string> = {
 };
 
 interface VisitorView {
+  id: string;
   model: Worker;
-  holder: THREE.Group;
-  crowd: SubagentCrowd;
   status: string;
+  /** Its own lobby spot, of VISITOR_SPOTS, and whether it's standing there now. */
+  spot: number;
+  standing: boolean;
+  /** The desk it's to sit at (it's there, or on its way), or none: its lobby spot. */
+  goal: string | undefined;
+  /** The desk it's sitting at. */
+  desk: DeskView | null;
+  /** On its way to its desk or its spot. */
+  walk: Walk | null;
+  /** Its laptop, once it has sat down somewhere: open on its desk while it sits there, shut and put away when it gets up. */
+  laptop: Laptop | null;
+  /** Where its subagents stand: on the floor under its seat, or at its lobby spot. */
+  ring: THREE.Object3D;
+  crowd: SubagentCrowd | null;
+  /** Where to aim at it, kept up with it (see usables below). */
+  it: Interactable;
 }
 
 /** What a visitor's card says: its title, and where it is and what it's doing. */
@@ -44,62 +76,336 @@ export function visitorCard(v: Visitor): { name: string; summary: string } {
   return { name: v.title, summary: v.activity ? `${where} · ${v.activity}` : where };
 }
 
-/** Follows the floor's visitors (the 'visitors' topic), and their tick ('others'). */
+/** What a visitor's laptop says: there's no terminal behind it, only what the office read of its latest tool call. */
+function screenOf(v: Visitor): string {
+  const doing = v.status === 'needs_input' ? '⏳ waiting on you' : (v.activity ?? 'working…');
+  return doing.length > SCREEN_CHARS ? `${doing.slice(0, SCREEN_CHARS - 1)}…` : doing;
+}
+
+/** Follows the floor's visitors (the 'visitors' topic) and whatever moves them (the workers, the floor's plan, the map), and their tick ('others'). */
 export function installVisitors(ctx: Ctx) {
+  const { sound, player, camera } = ctx;
   const views = new Map<string, VisitorView>();
   const group = new THREE.Group();
   ctx.scene.add(group);
   noOutline(group);
+  /** The desk each visitor has, and its lobby spot, as last worked out (see seats.ts). */
+  let desks = new Map<string, string>();
+  let spots = new Map<string, number>();
+  /** Laptops of visitors who got up, shutting. */
+  let closing: { laptop: Laptop; gone: number }[] = [];
+  /** Set while a floor arrives (a welcome, a floor.enter): its visitors are where they're going already, nobody walks. */
+  let arriving = false;
+  /** When (performance.now(), in seconds) the next visitor may step out of the elevator: they come one at a time. */
+  let nextOutAt = 0;
+  /**
+   * Whether the '+' over a seated visitor's desk is put away. A worker can be hired there all the same
+   * (the desk's own prompt), so it is only while some other desk still shows one: with a visitor at
+   * every free desk, theirs stay up, and there's always a '+' to say where the next worker goes.
+   */
+  let plusHidden = false;
+  /** Whom you can walk up to (see usables below), and where the ones walking are, for the elevator's doors. */
+  let nearby: Interactable[] = [];
+  const walkers: THREE.Vector3[] = [];
+  const at = new THREE.Vector3();
+  const size = new THREE.Vector3();
+  const footstep = (x: number, y: number, z: number) => sound.stepAt(x, z, y);
+  const listed = () => store.visitors.visitors.slice(0, VISITOR_SPOTS.length);
+
+  /** Off the desk it was on, shut, till its visitor sits down again: it keeps the one for as long as it's listed. */
+  function putAway(laptop: Laptop) {
+    closing = closing.filter((c) => c.laptop !== laptop);
+    laptop.shut(1);
+    laptop.root.removeFromParent();
+    laptop.root.scale.setScalar(1);
+  }
+
+  /** Off its chair or its spot, or off its way: nothing of it is left there. `atOnce`: its laptop goes without shutting first. */
+  function leave(view: VisitorView, atOnce: boolean) {
+    view.walk = null;
+    view.model.walking = false;
+    view.model.root.visible = true;
+    view.standing = false;
+    view.crowd?.dispose();
+    view.crowd = null;
+    if (view.desk) {
+      if (view.laptop && atOnce) putAway(view.laptop);
+      else if (view.laptop) closing.push({ laptop: view.laptop, gone: 0 });
+      sound.removeTypist(view.id);
+      // Its '+' again, unless a worker has the desk now (see plusHidden).
+      view.desk.vacancy.visible = !store.workerAtDesk(view.desk.def.id) && seatBuilt(view.desk.def.id);
+    }
+    view.desk = null;
+  }
+
+  /** Standing at its lobby spot, facing the room, its subagents round it. */
+  function stand(view: VisitorView) {
+    const [x, z, rotY] = VISITOR_SPOTS[view.spot];
+    const { root } = view.model;
+    group.add(root, view.ring);
+    root.position.set(x, -FEET, z);
+    root.rotation.set(0, rotY, 0);
+    root.scale.setScalar(1);
+    view.ring.position.set(x, 0, z);
+    view.ring.rotation.y = rotY;
+    view.crowd = new SubagentCrowd(view.ring, subagentSpot, SUBAGENT_SIZE);
+    view.standing = true;
+    view.it.x = x;
+    view.it.z = z;
+  }
+
+  /** In the chair at `desk`, the way a worker sits there, with a laptop open in front of it and its subagents behind its chair. */
+  function sit(view: VisitorView, desk: DeskView) {
+    const { root } = view.model;
+    desk.seatAnchor.add(root);
+    root.position.set(0, 0, 0);
+    root.rotation.set(0, 0, 0);
+    root.scale.setScalar(1);
+    desk.chair.rotation.y = 0;
+    if (!view.laptop) {
+      view.laptop = new Laptop(ctx.world().device);
+      noOutline(view.laptop.root);
+    } else putAway(view.laptop);
+    desk.laptopAnchor.add(view.laptop.root);
+    // On the floor under the seat, turned the way it faces (see features/subagents).
+    view.ring.position.set(desk.seatAnchor.position.x, 0, desk.seatAnchor.position.z);
+    view.ring.rotation.y = desk.seatAnchor.rotation.y;
+    desk.group.add(view.ring);
+    view.crowd = new SubagentCrowd(view.ring, chairSpot, CHAIR_SIZE);
+    view.desk = desk;
+    desk.seatAnchor.getWorldPosition(at);
+    view.it.x = at.x;
+    view.it.z = at.z;
+  }
+
+  /** The desk `view` is to sit at, if it's there to sit at. */
+  const goalDesk = (view: VisitorView) => (view.goal ? ctx.world().desks.get(view.goal) : undefined);
+  /** Whether it's where it's to be: in its chair, or at its spot. */
+  const settled = (view: VisitorView) => !view.walk && (view.goal ? view.desk?.def.id === view.goal : view.standing);
+
+  /** There at once, wherever it was: nobody watched it go. */
+  function place(view: VisitorView) {
+    if (settled(view)) return;
+    leave(view, true);
+    const desk = goalDesk(view);
+    if (desk) sit(view, desk);
+    else stand(view);
+  }
+
+  /** Sets off for where it's to be, from wherever it is: its chair, its spot, or part way to somewhere else. */
+  function setOff(view: VisitorView) {
+    // Half way up onto a chair: it lands first, and sets off from there (see the tick).
+    if (view.walk?.up) return;
+    const { nav } = ctx.world();
+    const { root } = view.model;
+    const desk = goalDesk(view) ?? null;
+    const [sx, sz, rotY] = VISITOR_SPOTS[view.spot];
+    const face = desk ? desk.def.rotY + Math.PI : rotY;
+    /** From `from` to beside the chair, or to its spot (which may be a step off where the grid lets it walk). */
+    const wayTo = (from: Pt): Pt[] => (desk ? nav.wayTo(from, desk.def) : [...nav.route(from, [sx, sz]), [sx, sz]]);
+    const was = view.walk;
+    if (view.desk) {
+      // Up out of its chair: down beside it on the shorter side, and off.
+      const from = view.desk;
+      const seat = root.getWorldPosition(new THREE.Vector3());
+      const scale = root.getWorldScale(size).x;
+      // A worker hired in its chair has a laptop of its own there already: the visitor's goes at once.
+      leave(view, !!store.workerAtDesk(from.def.id));
+      group.add(root);
+      root.position.copy(seat);
+      root.rotation.set(0, from.def.rotY + Math.PI, 0);
+      root.scale.setScalar(scale);
+      const out = nav.wayFrom(from.def, desk ? deskPoint(desk.def, 0, 1.75) : [sx, sz]);
+      const way = desk ? [out[0], ...nav.wayTo(out[1], desk.def)] : [...out, [sx, sz] as Pt];
+      view.walk = walkAlong(way, desk, face, root.rotation.y, 0, { from: seat, scale, p: 0 });
+    } else if (was) {
+      // On its way already: from where it is, or from where it lands or steps out.
+      const from: Pt = was.down || was.wait > 0 ? was.way[0] : [root.position.x, root.position.z];
+      view.walk = walkAlong(wayTo(from), desk, face, was.heading, was.wait, was.down);
+    } else {
+      leave(view, false);
+      view.walk = walkAlong(wayTo([root.position.x, root.position.z]), desk, face, root.rotation.y);
+    }
+  }
+
+  /** A visitor that has only just turned up, at work: out of the elevator and over to its desk, after whoever stepped out last. */
+  function walkIn(view: VisitorView, desk: DeskView) {
+    const now = performance.now() / 1000;
+    const wait = Math.max(0, nextOutAt - now);
+    nextOutAt = now + wait + SPACING;
+    const way = ctx.world().ways.in(desk.def);
+    const { root } = view.model;
+    group.add(root);
+    root.position.set(way[0][0], -FEET, way[0][1]);
+    root.rotation.set(0, 0, 0);
+    root.scale.setScalar(1);
+    root.visible = wait <= 0;
+    view.walk = walkAlong(way, desk, desk.def.rotY + Math.PI, 0, wait);
+  }
+
+  /** Its card, its light and its subagents, as the office last read them. */
+  function show(view: VisitorView, v: Visitor) {
+    if (view.status !== v.status) {
+      view.status = v.status;
+      // Waiting on you in its own app: it hops, the way a worker that needs you does.
+      view.model.setStatus(v.status, v.status === 'needs_input');
+    }
+    view.model.setTask(visitorCard(v));
+    const desk = view.desk;
+    // At a desk they stand the way a worker's do, past CHAIR_SHOWN a count; in the lobby, all the office was told of.
+    const shown = desk ? v.subagents.slice(0, CHAIR_SHOWN) : v.subagents;
+    view.crowd?.sync(shown, v.subagentCount - shown.length);
+    if (!desk) return;
+    view.laptop?.setPlaceholder(screenOf(v));
+    // Keys clack while it's at work, as they do under a worker.
+    sound.setTyping(view.id, desk.def.x, desk.def.z, v.status === 'working');
+  }
 
   function drop(id: string) {
-    const v = views.get(id);
-    if (!v) return;
-    v.crowd.dispose();
-    v.holder.removeFromParent();
-    v.model.dispose();
+    const view = views.get(id);
+    if (!view) return;
+    leave(view, true);
+    if (view.laptop) {
+      putAway(view.laptop);
+      view.laptop.dispose();
+    }
+    view.model.root.removeFromParent();
+    view.ring.removeFromParent();
+    view.model.dispose();
     views.delete(id);
   }
 
+  /**
+   * Someone sat down, got up or set off. Whom you can walk up to: the ones standing or walking (one at
+   * a desk is only aimed at, so that walking up to its desk is the desk's own prompt, as it is with
+   * nobody there). And the '+' over the desks they sit at: away while a desk with nobody at it shows one.
+   */
+  function whoIsWhere() {
+    nearby = [];
+    for (const view of views.values()) if (!view.desk && !(view.walk && view.walk.wait > 0)) nearby.push(view.it);
+    let free = 0;
+    let seated = 0;
+    if (ctx.inOffice()) for (const id of visitorDesks(store.floorPlan.wing)) if (!store.workerAtDesk(id)) free++;
+    for (const view of views.values()) if (view.desk) seated++;
+    plusHidden = free > seated;
+    for (const view of views.values()) if (view.desk) view.desk.vacancy.visible = !plusHidden && !store.workerAtDesk(view.desk.def.id);
+  }
+
   function sync() {
-    const list = store.visitors.visitors.slice(0, VISITOR_SPOTS.length);
+    const here = ctx.inOffice();
+    group.visible = here;
+    const list = listed();
     const ids = new Set(list.map((v) => v.id));
     for (const id of [...views.keys()]) if (!ids.has(id)) drop(id);
-    list.forEach((v, i) => {
+    // Only the office's own map has desks to walk to from here; workers come first, at every one of them.
+    const free = here ? visitorDesks(store.floorPlan.wing).filter((id) => !store.workerAtDesk(id) && ctx.world().desks.has(id)) : [];
+    desks = assignDesks(list, free, desks);
+    spots = assignSpots(list.map((v) => v.id), spots, VISITOR_SPOTS.length);
+    for (const v of list) {
+      const goal = wantsDesk(v) ? desks.get(v.id) : undefined;
       let view = views.get(v.id);
+      const isNew = !view;
       if (!view) {
-        const holder = new THREE.Group();
         const model = new Worker(APP[v.app], subagentColor(v.id));
-        holder.add(model.root);
-        group.add(holder);
-        view = { model, holder, crowd: new SubagentCrowd(holder, subagentSpot, SUBAGENT_SIZE), status: '' };
+        const it: Interactable = { kind: 'visitor', x: 0, z: 0, radius: 0.6, seatId: v.id };
+        // Aimed at wherever it is, in a chair too: before the desk it sits at.
+        model.root.userData.interact = it;
+        noOutline(model.root);
+        view = { id: v.id, model, status: '', spot: 0, standing: false, goal: undefined, desk: null, walk: null, laptop: null, ring: new THREE.Object3D(), crowd: null, it };
         views.set(v.id, view);
       }
-      const [x, z, rotY] = VISITOR_SPOTS[i];
-      view.holder.position.set(x, 0, z);
-      view.holder.rotation.y = rotY;
-      if (view.status !== v.status) {
-        view.status = v.status;
-        // Waiting on you in its own app: it hops, the way a worker that needs you does.
-        view.model.setStatus(v.status, v.status === 'needs_input');
-      }
-      view.model.setTask(visitorCard(v));
-      view.crowd.sync(v.subagents, v.subagentCount - v.subagents.length);
-    });
-    group.visible = ctx.inOffice();
+      const moved = isNew || goal !== view.goal;
+      view.goal = goal;
+      view.spot = spots.get(v.id) ?? 0;
+      // A desk walled up under it: there's no walking out of that.
+      const walled = !!view.desk && !seatBuilt(view.desk.def.id);
+      const desk = goalDesk(view);
+      if (arriving || !here || walled || (isNew && !desk)) place(view);
+      else if (isNew && desk) walkIn(view, desk);
+      else if (moved) setOff(view);
+      show(view, v);
+    }
+    whoIsWhere();
   }
   store.on('visitors', sync);
+  // A worker hired at a visitor's desk, or a row of the back office walled up: it finds another, or goes back to the lobby.
+  store.on('workers', sync);
+  store.on('floorPlan', sync);
+  // Another map put up: whoever was at a desk of the last one is where it goes on this one, without a walk.
+  store.on('map', () => {
+    const was = arriving;
+    arriving = true;
+    sync();
+    arriving = was;
+  });
+  ctx.messages.on('welcome', () => void (arriving = true), 'before');
+  ctx.messages.on('floor.enter', () => void (arriving = true), 'before');
+  // The office's first look after nobody was in it: they were at work already, so they're in their seats,
+  // and in the ones they'd have on a page that had only just been loaded (what the last list said was stale).
+  ctx.messages.on(
+    'visitors',
+    (msg) => {
+      arriving = !!msg.caughtUp;
+      if (!arriving) return;
+      desks = new Map();
+      spots = new Map();
+    },
+    'before',
+  );
+  // Once the store has it: whoever turns up or starts work from now on walks.
+  ctx.messages.onAny(() => void (arriving = false));
 
   ctx.ticks.add('others', ({ dt, t }) => {
+    walkers.length = 0;
     if (!group.visible) return;
-    for (const v of views.values()) {
-      v.model.update(dt, t);
-      v.crowd.update(dt, t);
+    let changed = false;
+    for (const view of views.values()) {
+      const { model, it } = view;
+      const w = view.walk;
+      if (w) {
+        const waiting = w.wait > 0;
+        if (stepWalk(model, w, dt, footstep)) {
+          it.x = model.root.position.x;
+          it.z = model.root.position.z;
+          if (w.wait <= 0) walkers.push(model.root.position);
+          changed ||= waiting && w.wait <= 0;
+        } else {
+          // There: into its chair, or at its spot. Told to go elsewhere on the last hop, it sets off again.
+          view.walk = null;
+          if (w.to) sit(view, w.to);
+          else stand(view);
+          if (!settled(view)) setOff(view);
+          const v = store.visitors.visitors.find((x) => x.id === view.id);
+          if (v) show(view, v);
+          changed = true;
+        }
+      }
+      // A jumping visitor holds still while you're near enough to read its card, as a worker does.
+      const d = Math.hypot(it.x - player.pos.x, it.z - player.pos.z);
+      model.held = d < (model.held ? HOLD_LEAVE : HOLD_NEAR);
+      model.update(dt, t);
+      view.crowd?.update(dt, t);
+      // Whatever else arranges the seats shows a '+' wherever no worker sits (see arrangeSeats in features/workers/views.ts).
+      if (plusHidden && view.desk) view.desk.vacancy.visible = false;
+      if (view.laptop && view.desk) view.laptop.update(dt, undefined, Math.hypot(view.desk.def.x - camera.position.x, view.desk.def.z - camera.position.z));
+    }
+    if (changed) whoIsWhere();
+    if (closing.length) {
+      closing = closing.filter((c) => {
+        if (!c.laptop.shut(dt)) return true;
+        c.gone = Math.min(1, c.gone + dt / LAPTOP_GONE);
+        c.laptop.root.scale.setScalar(Math.max(0.001, 1 - c.gone * c.gone));
+        if (c.gone < 1) return true;
+        c.laptop.root.removeFromParent();
+        c.laptop.root.scale.setScalar(1);
+        return false;
+      });
     }
   });
 
   // Aimed at, a visitor says who it is; there's nothing to press: it's someone else's session.
   ctx.usables.add({
-    usable: () => (group.visible ? store.visitors.visitors.slice(0, VISITOR_SPOTS.length).map((v, i) => ({ kind: 'visitor' as const, x: VISITOR_SPOTS[i][0], z: VISITOR_SPOTS[i][1], radius: 0.6, seatId: v.id })) : []),
+    usable: () => (group.visible ? nearby : NOBODY),
     pickable: () => group,
   });
   ctx.interactions.define('visitor', {
@@ -112,4 +418,9 @@ export function installVisitors(ctx: Ctx) {
     },
     use: () => {},
   });
+
+  return {
+    /** Where each visitor on its way is, for the doors to open. */
+    positions: (): readonly THREE.Vector3[] => walkers,
+  };
 }

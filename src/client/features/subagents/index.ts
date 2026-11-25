@@ -14,9 +14,9 @@ import { SubagentCrowd } from '../../world/character';
 /** A worker whose process is running: one asleep or gone has nobody working for it. */
 const RUNNING = new Set<WorkerStatus>(['starting', 'idle', 'working', 'needs_input', 'done']);
 /** How many stand round a desk; the rest are a count. */
-const SHOWN = 6;
+export const SHOWN = 6;
 /** How big they are next to a worker. */
-const SIZE = 0.6;
+export const SIZE = 0.6;
 
 /**
  * Where the i-th stands, in the seat's own frame (the worker faces +z, its desk): behind the chair,
@@ -31,7 +31,7 @@ const SPOTS: readonly (readonly [number, number])[] = [
   [-0.6, -1.85],
   [0.6, -1.85],
 ];
-const spot = (i: number) => {
+export const spot = (i: number) => {
   const [x, z] = SPOTS[Math.min(i, SPOTS.length - 1)];
   return [x, z, Math.atan2(-x, -z)] as const;
 };

@@ -40,6 +40,7 @@ import type { installSeating } from '../features/seating';
 import type { installSmoke } from '../features/smoke';
 import type { installTelescope } from '../features/telescope';
 import type { installTv } from '../features/tv';
+import type { installVisitors } from '../features/visitors';
 import type { installVoice } from '../features/voice';
 import type { installWaiting } from '../features/waiting';
 import type { installWalking } from '../features/walking';
@@ -121,6 +122,7 @@ export interface Parts {
   hoops: Made<typeof installBasketball>;
   cards: Made<typeof installCarrying>;
   seating: Made<typeof installSeating>;
+  visitors: Made<typeof installVisitors>;
   emotes: Made<typeof installEmotes>;
   talk: Made<typeof installVoice>;
   hud: Made<typeof installHud>;
