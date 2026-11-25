@@ -99,7 +99,7 @@ function renderStatus(m: Meeting, body: HTMLElement, foot: HTMLElement, net: Net
     }),
   );
   const where = m.worktree ? h('span', {}, '🌿 ', h('code', {}, m.worktree.branch), m.commit ? t('panels.meeting.committed', { commit: ltrText(m.commit) }) : '') : null;
-  const review = m.review?.url ? h('a', { href: m.review.url, target: '_blank', rel: 'noopener noreferrer' }, t('panels.meeting.review', { pr: m.pr ?? '' })) : m.review?.error ? h('span.bad', {}, t('panels.meeting.reviewFailed', { error: serverText(m.review.error) })) : null;
+  const review = m.review?.url ? h('a', { href: m.review.url, target: '_blank', rel: 'noopener noreferrer' }, t('panels.meeting.review', { pr: String(m.pr ?? '') })) : m.review?.error ? h('span.bad', {}, t('panels.meeting.reviewFailed', { error: serverText(m.review.error) })) : null;
   body.replaceChildren(
     ...present(
     h('div.meeting-head', {}, pill, h('b', {}, `${p.icon} ${p.label}`), h('span.meeting-title', { title: m.prompt }, m.title)),

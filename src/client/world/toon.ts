@@ -141,6 +141,8 @@ onLang(() => {
       phrased.delete(ref);
       continue;
     }
+    // Not in a scene: a world taken down (its textures disposed) that the collector hasn't freed yet.
+    if (!sign.parent) continue;
     const p = sign.userData.phrased as Phrased;
     const { tex, w, h } = textTexture(p.words(), p.opts);
     sign.material.map?.dispose();

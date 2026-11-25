@@ -3,7 +3,7 @@ import { FLAG_BOLD, FLAG_DIM, FLAG_INVERSE, RGB_FLAG, type Run } from '../../../
 import { mesh, roundedBox, toon } from '../../world/toon';
 import { TERM_THEME } from '../../ui/termtheme';
 import type { ScreenState } from '../../state/store';
-import { t } from '../../i18n';
+import { onLang, t } from '../../i18n';
 import { dirFor, FONT, hasRtl } from '../../i18n/canvas';
 
 
@@ -136,7 +136,10 @@ export class Laptop {
   private drawnVersion = -1;
   private paintedAt = 0;
   private openT = 0;
-  private placeholder = t('desks.laptop.booting');
+  /** What it says before its terminal is there; none is the starting line, in the language now. */
+  private placeholder: string | undefined;
+  /** A switch of language paints the screen again (the worker's own line comes from views.ts). */
+  private offLang = onLang(() => void (this.drawnVersion = -2));
   /** Anything else of its own to free (the tome's page). */
   private owned: THREE.Material[] = [];
 
@@ -234,6 +237,7 @@ export class Laptop {
   }
 
   dispose() {
+    this.offLang();
     this.texture.dispose();
     for (const m of this.owned) m.dispose();
   }

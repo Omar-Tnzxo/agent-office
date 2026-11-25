@@ -3,7 +3,7 @@ import { FRAMES, FRAME_BORDER, WALLS, frameRect, wallPose, wallTop, type Decorat
 import { FLOOR, LOFT } from '../../../shared/layout';
 import type { Interactable } from '../../world/types';
 import { toon } from '../../world/toon';
-import { t } from '../../i18n';
+import { onLang, t, type TextKey } from '../../i18n';
 import { dirFor, FONT } from '../../i18n/canvas';
 import { serverText } from '../../i18n/server';
 
@@ -109,10 +109,22 @@ function prunePictures(onWalls: Set<string>) {
   }
 }
 
-function notice(text: string, bg: string, fg: string): THREE.CanvasTexture {
+/** A notice in place of a picture, painted on the same canvas again in the new language on a switch. */
+function notice(key: TextKey, bg: string, fg: string): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 512;
   c.height = 384;
+  paintNotice(c, t(key), bg, fg);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  onLang(() => {
+    paintNotice(c, t(key), bg, fg);
+    tex.needsUpdate = true;
+  });
+  return tex;
+}
+
+function paintNotice(c: HTMLCanvasElement, text: string, bg: string, fg: string): void {
   const g = c.getContext('2d')!;
   g.fillStyle = bg;
   g.fillRect(0, 0, c.width, c.height);
@@ -122,15 +134,12 @@ function notice(text: string, bg: string, fg: string): THREE.CanvasTexture {
   g.font = `800 44px ${FONT}`;
   dirFor(g, text);
   g.fillText(text, c.width / 2, c.height / 2);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
 }
 
 let loadingTex: THREE.CanvasTexture | null = null;
 let brokenTex: THREE.CanvasTexture | null = null;
-const loadingTexture = () => (loadingTex ??= notice(t('toys.hang.loadingTex'), '#e9ecef', '#7a6f65'));
-export const brokenTexture = () => (brokenTex ??= notice(t('toys.hang.broken'), '#ffd6e0', '#2b2d42'));
+const loadingTexture = () => (loadingTex ??= notice('toys.hang.loadingTex', '#e9ecef', '#7a6f65'));
+export const brokenTexture = () => (brokenTex ??= notice('toys.hang.broken', '#ffd6e0', '#2b2d42'));
 
 // ---- Frames ---------------------------------------------------------------------------------------
 

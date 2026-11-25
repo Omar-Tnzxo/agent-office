@@ -423,8 +423,8 @@ export const ar: Arabic<typeof en> = {
   'panels.wk.waiting': 'بانتظار رد',
   'panels.wk.needsYou.title': '{name} يحتاجك: افتح طرفيته للرد',
   'panels.wk.open': 'فتح طرفية {name}',
-  'panels.wk.lost.title': 'حُذفت مساحة عمله خارج agent-office: افتحه لإصلاحها',
-  'panels.wk.lost': 'حُذفت مساحة العمل',
+  'panels.wk.lost.title': 'حُذفت نسخة عمله خارج agent-office: افتحه لإصلاحها',
+  'panels.wk.lost': 'حُذفت نسخة العمل (worktree)',
   'panels.wk.needsYou': 'يحتاجك',
   'panels.wk.empty': 'اقترب من مكتب واضغط E لتوظيف عامل',
 

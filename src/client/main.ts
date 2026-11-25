@@ -8,7 +8,7 @@ import { Confetti } from './world/confetti';
 import { djFrame } from './dnb';
 import { Voice } from './voice';
 import { $ } from './ui/dom';
-import { t } from './i18n';
+import { lang, t } from './i18n';
 import { fontsReady } from './i18n/canvas';
 import { installPageLanguage } from './i18n/dom';
 import { openCharacter } from './ui/character';
@@ -82,8 +82,8 @@ const offer2d = (why: 'touch' | 'slow') => chose3d || offerLite(why);
 // A phone can't walk around the office: the 2D view is made for it.
 if (touchOnly()) offer2d('touch');
 // The models made in Blender, loaded before the world they're in is built (see world/models.ts), and
-// the Arabic font before the first name tag or sign is drawn on a canvas (see i18n/canvas.ts).
-await Promise.all([preloadModels(), fontsReady()]);
+// in Arabic, the Arabic font before the first name tag or sign is drawn on a canvas (see i18n/canvas.ts).
+await Promise.all([preloadModels(), lang() === 'ar' ? fontsReady() : undefined]);
 
 // ---- The context every part of the office plugs into (see core/context.ts) ----------------------------
 // Built before the parts it hands out, which are there by the time anything asks for them. Every part

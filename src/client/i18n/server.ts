@@ -20,14 +20,15 @@ type Rule = readonly [pattern: RegExp, key: TextKey, holes: readonly string[]];
 const LONG_DASH = String.fromCharCode(0x2014);
 const dashed = (re: RegExp) => new RegExp(re.source.replace('<D>', LONG_DASH), re.flags);
 
-const RULES: readonly Rule[] = [
+const WRITTEN: readonly Rule[] = [
   // Hiring, sending home, worktrees.
   [/^(.+?) hired (.+?) for issue #(\d+) across (.+)$/, 'server.hiredIssueAcross', ['who', 'name', 'n', 'repos']],
   [/^(.+?) hired (.+?) for issue #(\d+)$/, 'server.hiredIssue', ['who', 'name', 'n']],
   [/^(.+?) hired (.+?) with a task across (.+)$/, 'server.hiredTaskAcross', ['who', 'name', 'repos']],
   [/^(.+?) hired (.+?) with a task$/, 'server.hiredTask', ['who', 'name']],
   [/^(.+?) hired (.+?) across (.+)$/, 'server.hiredAcross', ['who', 'name', 'repos']],
-  [/^(.+?) hired (.+?)$/, 'server.hired', ['who', 'name']],
+  // A worker's name has no brackets: "whoever hired Ada (omar) isn't signed in..." is an error, not this.
+  [/^(.+?) hired ([^:()]+?)$/, 'server.hired', ['who', 'name']],
   [/^(.+?) opened a shell at a desk$/, 'server.openedShell', ['who']],
   [/^🏠 (.+?) sent (.+?) home: (.+)$/s, 'server.sentHomeWhy', ['who', 'name', 'why']],
   [/^(.+?) sent (.+?) home$/, 'server.sentHome', ['who', 'name']],
@@ -247,9 +248,20 @@ const RULES: readonly Rule[] = [
   [/^🖼️ hanging a picture$/, 'server.doing.hanging', []],
 ];
 
+/**
+ * Every short (.+?) above is a name (a person, a worker, a desk), and a name never has a colon in it,
+ * so a rule can't match inside a longer error ("Could not start claude: whoever hired Ada...") by
+ * taking "Could not start claude: whoever" for a name.
+ */
+const NAME = '([^:\\n]+?)';
+const RULES: readonly Rule[] = WRITTEN.map(([pattern, key, holes]) => [new RegExp(pattern.source.split('(.+?)').join(NAME), pattern.flags), key, holes]);
+
+/** Longer than any message a rule is for: such text (an agent's long error, say) is shown as it came. */
+const LONGEST = 400;
+
 /** `text` from the server, in the page's language when a rule knows it. */
 export function serverText(text: string): string {
-  if (lang() === 'en') return text;
+  if (lang() === 'en' || text.length > LONGEST) return text;
   for (const [pattern, key, holes] of RULES) {
     const m = pattern.exec(text);
     if (m) return t(key, Object.fromEntries(holes.map((name, i) => [name, m[i + 1] ?? ''])));

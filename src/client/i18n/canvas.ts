@@ -5,7 +5,7 @@
  * `textDir`, and the page waits for `fontsReady()` before it builds the office, so the first labels
  * aren't drawn in a fallback font and never redrawn.
  */
-import { lang } from '.';
+import { lang, onLang, relang } from '.';
 
 /** The office's font for canvas text: Cairo for Arabic letters, the office's own for the rest. */
 export const FONT = "Cairo, Nunito, ui-rounded, 'SF Pro Rounded', system-ui, sans-serif";
@@ -40,16 +40,26 @@ export function dirFor(ctx: CanvasRenderingContext2D, text: string): void {
 }
 
 let ready: Promise<void> | null = null;
+let loaded = false;
 
 /**
  * Loads Cairo's weights the canvases draw with, at most `wait` milliseconds, so labels drawn after it
- * have their Arabic letters. Safe to call again; once it's loaded it resolves at once.
+ * have their Arabic letters. Safe to call again; once it's loaded it resolves at once. The page only
+ * waits for it in Arabic (main.ts): English labels don't need it.
  */
 export function fontsReady(wait = 2500): Promise<void> {
   if (typeof document === 'undefined' || !document.fonts?.load) return Promise.resolve();
   ready ??= Promise.race([
-    Promise.all(['700', '800'].map((w) => document.fonts.load(`${w} 32px Cairo`, 'عربي'))).then(() => undefined),
+    Promise.all(['700', '800'].map((w) => document.fonts.load(`${w} 32px Cairo`, 'عربي'))).then(() => void (loaded = true)),
     new Promise<void>((done) => setTimeout(done, wait)),
   ]).catch(() => undefined);
   return ready;
 }
+
+// A switch to Arabic before the font is in: the labels drawn now are drawn again once it is.
+onLang((l) => {
+  if (l !== 'ar' || loaded) return;
+  void fontsReady().then(() => {
+    if (loaded && lang() === 'ar') relang();
+  });
+});

@@ -72,6 +72,11 @@ export function setLang(l: Lang) {
   [...listeners].forEach((fn) => fn(l));
 }
 
+/** Has everything that listens draw itself again in the language now, as on a switch (the Arabic font came in late). */
+export function relang() {
+  [...listeners].forEach((fn) => fn(current));
+}
+
 /** Hears every switch of language; hands back what stops it. */
 export function onLang(fn: (l: Lang) => void): () => void {
   listeners.add(fn);
@@ -112,6 +117,12 @@ export function fill(text: string, vars?: Vars, l: Lang = current): string {
 function entry(key: string, l: Lang) {
   const table = (l === 'ar' ? AR : EN) as Record<string, string | Plural | undefined>;
   return table[key] ?? (EN as Record<string, string | Plural | undefined>)[key];
+}
+
+/** A phrase in the language now with its {holes} still open, for i18n/dom.ts's rich(). */
+export function raw(key: TextKey): string {
+  const e = entry(key, current);
+  return typeof e === 'string' ? e : key;
 }
 
 /** A phrase in the language now, with its {holes} filled from `vars`. */

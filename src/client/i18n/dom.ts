@@ -3,7 +3,7 @@
  * marked with the key to show (data-i18n for the text, data-i18n-title, data-i18n-aria and
  * data-i18n-placeholder for those attributes). They're filled in at load and again on a switch.
  */
-import { applyDocument, lang, LANG_NAME, onLang, setLang, t, type Lang, type TextKey, type Vars } from '.';
+import { applyDocument, fill, lang, LANG_NAME, onLang, raw, setLang, t, type Lang, type TextKey, type Vars } from '.';
 
 export function translateDom(root: ParentNode = document) {
   const each = (attr: string, put: (el: HTMLElement, text: string) => void) =>
@@ -50,17 +50,15 @@ export function langSwitch(): HTMLButtonElement {
  * `rich('hud.menuFoot', { key: kbd })` is the phrase's text around `kbd`, in the language's order.
  */
 export function rich(key: TextKey, nodes: Readonly<Record<string, Node>>, vars?: Vars): Node[] {
+  // Split the phrase as written first and fill the text between, so a {hole} inside what `vars` brings
+  // (a commit message with "{sha}" in it, say) stays text and never moves an element.
   const out: Node[] = [];
-  let at = 0;
-  const text = t(key, vars);
-  for (const m of text.matchAll(/\{(\w+)\}/g)) {
-    const node = nodes[m[1]];
-    if (!node) continue;
-    if (m.index > at) out.push(document.createTextNode(text.slice(at, m.index)));
-    out.push(node);
-    at = m.index + m[0].length;
-  }
-  if (at < text.length) out.push(document.createTextNode(text.slice(at)));
+  const pieces = raw(key).split(/(\{\w+\})/);
+  pieces.forEach((piece, i) => {
+    const node = i % 2 ? nodes[piece.slice(1, -1)] : undefined;
+    if (node) out.push(node);
+    else if (piece) out.push(document.createTextNode(fill(piece, vars)));
+  });
   return out;
 }
 

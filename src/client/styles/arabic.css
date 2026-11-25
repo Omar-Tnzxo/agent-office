@@ -40,6 +40,9 @@
    Mark such an element with class "ltr" (or dir="ltr"), or wrap a run of it with ltr() (i18n/dom.ts). */
 .ltr, code, pre, kbd, samp, .xterm, [dir='ltr'] { direction: ltr; unicode-bidi: isolate; }
 .ltr, code, pre, kbd, samp { text-align: start; }
+/* What people type (prompts, owner/repo, branches, commands, chat) takes the direction of its own first
+   letters: English typed into an Arabic page reads left to right, Arabic right to left. */
+[dir='rtl'] :is(input:not([type]), input[type='text'], input[type='search'], input[type='url'], textarea) { unicode-bidi: plaintext; text-align: start; }
 /* A run of words in a sentence of the other direction, like a name or a branch in a hint. */
 bdi, .bidi { unicode-bidi: isolate; }
 /* Arabic letters sit a little low and run wider: a touch more line height reads better. */
