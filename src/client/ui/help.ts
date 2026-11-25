@@ -32,6 +32,7 @@ export const HELP_ROWS: readonly (readonly [string, string])[] = [
   ['Q', 'Put back the issue card in your hands (E at a note on the issues board, or ✋ Pick it up in an issue; then E at an empty desk, a worker or the queue board), or drop the basketball'],
   ['🐶', 'Walk up to the office dog and press E to pet it. When a worker needs input, it runs to that desk and barks. Name it in ⚙️ Settings'],
   ['O', 'Open a pull request for a worker on its own branch, or see the one it has'],
+  ['I', "Watch a visitor (a Claude Code session the office didn't start: the Claude app, a terminal) over its shoulder: its prompts, what it writes, every tool call with its diff or output, and a tab per subagent, live. At a visitor, at the desk one sits at, or E on one standing. Its laptop shows its latest steps too. Only to look at"],
   ['T', 'Chat'],
   ['G / 1–6', 'Emote: hold G, point at one and let go (or tap G and click one), or press 1–6: wave, thumbs up, clap, dance, point, facepalm. Everyone on your floor sees it'],
   ['/', 'Search the chat and every terminal on your floor, back to before the office last restarted'],

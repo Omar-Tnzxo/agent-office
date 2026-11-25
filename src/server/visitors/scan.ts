@@ -5,6 +5,8 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import type { Subagent } from '../../shared/protocol.js';
+import type { ScreenLine } from '../../shared/protocol.js';
+import { screenOf } from './feed.js';
 import { entries, readSlice, sessionOf, turnOf, type SessionFacts, type TurnFacts } from './transcript.js';
 import { truncate } from '../workers/util.js';
 
@@ -41,6 +43,8 @@ export interface Sighting {
   turn: TurnFacts;
   /** Its subagents at work, most recently heard from first. */
   subagents: Subagent[];
+  /** What its laptop shows (see screenOf). */
+  screen?: ScreenLine[];
 }
 
 interface Known {
@@ -48,6 +52,7 @@ interface Known {
   mtime: number;
   facts: SessionFacts;
   turn: TurnFacts;
+  screen: ScreenLine[];
 }
 
 interface KnownAgent {
@@ -133,7 +138,7 @@ export class SessionScanner {
         seen.add(id);
         if (!this.firstSeen.has(id)) this.firstSeen.set(id, now);
         const seenAt = Math.max(st.mtime, ...subagents.map((s) => s.seenAt));
-        out.push({ id, file, seenAt, facts: read.facts, turn: read.turn, subagents });
+        out.push({ id, file, seenAt, facts: read.facts, turn: read.turn, subagents, ...(read.screen.length ? { screen: read.screen } : {}) });
       }
     }
     for (const id of this.firstSeen.keys()) if (!seen.has(id)) this.firstSeen.delete(id);
@@ -159,7 +164,7 @@ export class SessionScanner {
       const named = json(path.join(file.slice(0, -'.jsonl'.length), 'custom-title.json'))?.customTitle;
       if (typeof named === 'string' && named.trim()) facts = { ...facts, title: truncate(named.trim(), 70) };
     }
-    const known = { size: st.size, mtime: st.mtime, facts, turn };
+    const known = { size: st.size, mtime: st.mtime, facts, turn, screen: screenOf(tail) };
     this.known.set(file, known);
     return known;
   }

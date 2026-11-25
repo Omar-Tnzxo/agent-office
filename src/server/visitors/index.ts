@@ -9,6 +9,7 @@ import path from 'node:path';
 import { normalizeRepo, sameRepo } from '../../shared/floors.js';
 import { VISITOR_SUBAGENTS, type Visitor, type VisitorsState } from '../../shared/protocol.js';
 import { SessionScanner, type Sighting } from './scan.js';
+import { VisitorWatch, type WatchTarget } from './watch.js';
 
 /** How often the projects folder is looked over, while anyone is in the office. */
 const EVERY_MS = 4000;
@@ -109,6 +110,7 @@ export function visitorOf(s: Sighting, lobby: boolean): Visitor {
     lobby,
     subagents: subagents.slice(0, VISITOR_SUBAGENTS),
     subagentCount: subagents.length,
+    ...(s.screen?.length ? { screen: s.screen } : {}),
   };
 }
 
@@ -153,6 +155,10 @@ export class Visitors {
   private unwatched = true;
   /** Every session the office's workers have had: one a worker left behind (a /clear) is no visitor either. */
   private workers = new Set<string>();
+  /** The transcripts of the visitors listed now, by session id: the only ones that can be watched. */
+  private targets = new Map<string, WatchTarget>();
+  /** The Watch windows open on visitors (see watch.ts). */
+  readonly watch = new VisitorWatch({ find: (id) => this.targets.get(id) });
 
   constructor(
     private opts: { root?: string; roots?: string[]; off?: boolean },
@@ -189,6 +195,7 @@ export class Visitors {
   stop() {
     clearInterval(this.timer);
     this.timer = undefined;
+    this.watch.stop();
   }
 
   /** The visitors on `floor`, for someone arriving there. */
@@ -223,6 +230,8 @@ export class Visitors {
         next.set(where.floor, list);
       }
       this.byFloor = new Map([...next].map(([floor, list]) => [floor, list.sort((a, b) => this.since(a.id) - this.since(b.id) || a.id.localeCompare(b.id)).slice(0, MAX_VISITORS)]));
+      const listed = new Set([...this.byFloor.values()].flat().map((v) => v.id));
+      this.targets = new Map(sightings.filter((s) => listed.has(s.id)).map((s) => [s.id, { file: s.file, subagents: s.subagents }]));
       for (const f of floors) {
         const state = this.state(f.id);
         const key = JSON.stringify(state);
