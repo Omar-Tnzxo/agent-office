@@ -37,7 +37,7 @@ declare module '../../world/types' {
   }
 }
 
-export type WorkerActionsParts = Pick<Parts, 'worlds' | 'seating' | 'walking' | 'waiting' | 'meeting' | 'cards'>;
+export type WorkerActionsParts = Pick<Parts, 'worlds' | 'seating' | 'walking' | 'waiting' | 'meeting' | 'cards' | 'visitorWatch'>;
 
 /** Registers the worktree answer (worker.worktree), and defines what's done at a desk and at a board agent. */
 export function installWorkerActions(ctx: Ctx, core: CoreState, parts: WorkerActionsParts) {
@@ -354,10 +354,13 @@ export function installWorkerActions(ctx: Ctx, core: CoreState, parts: WorkerAct
       const paused = hiringPaused();
       const m = store.machine;
       const full = officeFull(m);
+      // A visitor working here: who, and I to watch it (E still hires: workers come first).
+      const visitor = parts.visitorWatch.deskHint(deskId);
       return {
-        k: `${paused}|${full}|${m.workers}|${m.limit}|${!!m.pressure}|${sign}`,
+        k: `${paused}|${full}|${m.workers}|${m.limit}|${!!m.pressure}|${sign}${visitor.k}`,
         parts: [
-          h('span.title', {}, `${deskName} · empty`),
+          h('span.title', {}, `${deskName} · ${visitor.k ? 'no worker' : 'empty'}`),
+          ...visitor.parts,
           ...(full
             ? [h('span.cost', {}, `🚫 Office full · ${m.workers} of ${m.limit} workers`)]
             : [

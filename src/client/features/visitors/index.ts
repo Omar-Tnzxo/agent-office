@@ -12,7 +12,10 @@ import { deskPoint, type Pt } from '../../../shared/nav';
 import type { Visitor, VisitorApp } from '../../../shared/protocol';
 import type { Ctx } from '../../core/context';
 import { seatBuilt } from '../../core/floors';
-import { aside, hintTitle } from '../../core/hint';
+import { aside, hintTitle, key } from '../../core/hint';
+import type { Parts } from '../../core/parts';
+import { canWatch } from '../visitor-watch';
+import { laptopScreen, showOnLaptop } from '../visitor-watch/screen';
 import { noOutline } from '../../core/outline';
 import { store } from '../../state';
 import { SubagentCrowd, Worker, subagentColor } from '../../world/character';
@@ -38,8 +41,6 @@ const HOLD_LEAVE = 5;
 /** Seconds for a shut laptop to shrink away. */
 const LAPTOP_GONE = 0.3;
 const NOBODY: readonly Interactable[] = [];
-/** How many letters fit across a laptop's screen, at the size its one line is painted (see paintScreen). */
-const SCREEN_CHARS = 20;
 
 const APP: Record<VisitorApp, string> = {
   desktop: '🖥️ Claude app',
@@ -76,14 +77,8 @@ export function visitorCard(v: Visitor): { name: string; summary: string } {
   return { name: v.title, summary: v.activity ? `${where} · ${v.activity}` : where };
 }
 
-/** What a visitor's laptop says: there's no terminal behind it, only what the office read of its latest tool call. */
-function screenOf(v: Visitor): string {
-  const doing = v.status === 'needs_input' ? '⏳ waiting on you' : (v.activity ?? 'working…');
-  return doing.length > SCREEN_CHARS ? `${doing.slice(0, SCREEN_CHARS - 1)}…` : doing;
-}
-
 /** Follows the floor's visitors (the 'visitors' topic) and whatever moves them (the workers, the floor's plan, the map), and their tick ('others'). */
-export function installVisitors(ctx: Ctx) {
+export function installVisitors(ctx: Ctx, parts: Pick<Parts, 'visitorWatch'>) {
   const { sound, player, camera } = ctx;
   const views = new Map<string, VisitorView>();
   const group = new THREE.Group();
@@ -261,7 +256,8 @@ export function installVisitors(ctx: Ctx) {
     const shown = desk ? v.subagents.slice(0, CHAIR_SHOWN) : v.subagents;
     view.crowd?.sync(shown, v.subagentCount - shown.length);
     if (!desk) return;
-    view.laptop?.setPlaceholder(screenOf(v));
+    // What it's doing, as its screen would show it (see visitor-watch/screen.ts).
+    if (view.laptop) showOnLaptop(view.laptop, v);
     // Keys clack while it's at work, as they do under a worker.
     sound.setTyping(view.id, desk.def.x, desk.def.z, v.status === 'working');
   }
@@ -400,7 +396,7 @@ export function installVisitors(ctx: Ctx) {
       view.crowd?.update(dt, t);
       // Whatever else arranges the seats shows a '+' wherever no worker sits (see arrangeSeats in features/workers/views.ts).
       if (plusHidden && view.desk) view.desk.vacancy.visible = false;
-      if (view.laptop && view.desk) view.laptop.update(dt, undefined, Math.hypot(view.desk.def.x - camera.position.x, view.desk.def.z - camera.position.z));
+      if (view.laptop && view.desk) view.laptop.update(dt, laptopScreen(view.laptop), Math.hypot(view.desk.def.x - camera.position.x, view.desk.def.z - camera.position.z));
     }
     if (changed) whoIsWhere();
     if (closing.length) {
@@ -416,7 +412,7 @@ export function installVisitors(ctx: Ctx) {
     }
   });
 
-  // Aimed at, a visitor says who it is; there's nothing to press: it's someone else's session.
+  // Aimed at, a visitor says who it is, and E (or I, see visitor-watch) watches it: it's someone else's session.
   ctx.usables.add({
     usable: () => (group.visible ? nearby : NOBODY),
     pickable: () => group,
@@ -427,13 +423,19 @@ export function installVisitors(ctx: Ctx) {
       const v = store.visitors.visitors.find((x) => x.id === it.seatId);
       if (!v) return { k: 'visitor', parts: [hintTitle('👋 A visitor')] };
       const subs = v.subagentCount ? ` · ${v.subagentCount} subagent${v.subagentCount === 1 ? '' : 's'}` : '';
-      return { k: `visitor|${v.id}|${v.status}|${v.subagentCount}`, parts: [hintTitle(`👋 ${v.title}`), aside(`${APP[v.app]} · ${v.folder}${subs} · only to look at`)] };
+      // Watching is for admins (see visitor-watch).
+      const admin = canWatch();
+      return { k: `visitor|${v.id}|${v.status}|${v.subagentCount}|${admin}`, parts: [hintTitle(`👋 ${v.title}`), aside(`${APP[v.app]} · ${v.folder}${subs}`), admin ? key('I', 'Watch') : ''] };
     },
-    use: () => {},
+    use: (it, k) => {
+      if (k === 'E' && it.seatId && canWatch()) parts.visitorWatch.watch(it.seatId);
+    },
   });
 
   return {
     /** Where each visitor on its way is, for the doors to open. */
     positions: (): readonly THREE.Vector3[] => walkers,
+    /** The visitor sitting at `deskId`, if one is. */
+    seatedAt: (deskId: string): string | undefined => [...views.values()].find((view) => view.desk?.def.id === deskId)?.id,
   };
 }

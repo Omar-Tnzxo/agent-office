@@ -22,7 +22,7 @@ import { IS_MAC } from '../../ui/termkeys';
 import { openWhiteboard } from '../whiteboard/ui';
 import type { InteractKind, Interactable } from '../../world/types';
 
-export type PaletteParts = Pick<Parts, 'walking' | 'waiting' | 'actions' | 'hud' | 'hanging' | 'meeting' | 'telescope'>;
+export type PaletteParts = Pick<Parts, 'walking' | 'waiting' | 'actions' | 'hud' | 'hanging' | 'meeting' | 'telescope' | 'visitorWatch'>;
 
 /** Listens for Ctrl+K (⌘K) on the window. */
 export function installPalette(ctx: Ctx, parts: PaletteParts) {
@@ -80,6 +80,11 @@ export function installPalette(ctx: Ctx, parts: PaletteParts) {
         open,
         walk: desk && spot ? () => walkThen(spot, `${w.name} at ${desk.label}`, open, desk) : undefined,
       });
+    }
+
+    // Claude Code sessions the office didn't start: Enter watches one over its shoulder (admins only).
+    for (const v of store.me.admin ? store.visitors.visitors : []) {
+      out.push({ icon: '👀', kind: 'Visitor', title: v.title, detail: ['Watch', v.folder, STATUS_LABEL[v.status]].join(' · '), keywords: [v.branch, 'visitor', 'watch'], open: () => parts.visitorWatch.watch(v.id) });
     }
 
     const free = nearestFreeDesk();
