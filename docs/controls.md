@@ -16,7 +16,7 @@ Back to the [README](../README.md).
 | X | Send a worker home (frees the desk; a worker with its own worktree asks what to do with it). In the [castle](maps.md#the-castle), the Kingsguard takes it down to the dungeon; on the [space station](maps.md#the-space-station), Security puts it out of the airlock |
 | L | Hang a big sign over the desk you face (*Operations*, *Code cleanup*), in one of seven colors; again to change it or take it down |
 | O | Open a pull request for a worker on its own branch, or see the one it has (a worker across several projects gets one in each) |
-| I | Watch a [visitor](features.md) over its shoulder: at one standing or walking, or at the desk one sits at (E there still hires a worker). E or a click on one standing does it too, and so does the command palette. Read only |
+| I | Watch a [visitor](features.md) over its shoulder: at one standing or walking, or at the desk one sits at (E there still hires a worker). E or a click on one standing does it too, and so does the command palette. Admins only, and only a visitor on your floor. Read only |
 | N | Go to the worker that has waited longest on someone; again for the next one |
 | F | Hang a picture from the web on a wall (scroll to size it, click to hang it) |
 | Q | Put back the issue card you're carrying, or drop the basketball |

@@ -3,7 +3,7 @@
 [Omar-Tnzxo/agent-office](https://github.com/Omar-Tnzxo/agent-office) is [AgentSystemLabs/agent-office](https://github.com/AgentSystemLabs/agent-office) plus two features, offered upstream in [AgentSystemLabs/agent-office#405](https://github.com/AgentSystemLabs/agent-office/pull/405):
 
 - **Subagents at the desk.** A Claude Code worker's subagents (the Agent tool, a workflow's agents) stand round its chair while they run.
-- **Visitors.** Claude Code sessions the office didn't start (the Claude desktop app, a terminal, an IDE) show up on the floor whose repository they work in, with their subagents round them: one at work walks from the elevator to a desk no worker has and sits there typing, and walks back to the lobby when its turn is over. Its laptop shows its latest steps, and **I** (or E on one standing) opens a read-only **👀 Watch** window that streams its session live, subagents in tabs. Workers come first, so hiring at a visitor's desk moves the visitor. Read-only; `--no-visitors` turns them off.
+- **Visitors.** Claude Code sessions the office didn't start (the Claude desktop app, a terminal, an IDE) show up on the floor whose repository they work in, with their subagents round them: one at work walks from the elevator to a desk no worker has and sits there typing, and walks back to the lobby when its turn is over. Its laptop shows its latest steps, and for admins **I** (or E on one standing) opens a read-only **👀 Watch** window that streams its session live, subagents in tabs. Workers come first, so hiring at a visitor's desk moves the visitor. Read-only; `--no-visitors` turns them off.
 
 See [docs/features.md](docs/features.md) and [docs/how-it-works.md](docs/how-it-works.md) for both.
 

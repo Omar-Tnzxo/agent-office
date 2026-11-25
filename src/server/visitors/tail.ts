@@ -11,6 +11,13 @@ export const TAIL_LINE = 2 * 1024 * 1024;
 
 const NEWLINE = 0x0a;
 
+/** Whether the byte before `at` ends a line: then `at` is the start of one. */
+function lineStartsAt(fd: number, at: number): boolean {
+  if (at <= 0) return true;
+  const b = Buffer.alloc(1);
+  return readSync(fd, b, 0, 1, at - 1) === 1 && b[0] === NEWLINE;
+}
+
 export class TranscriptTail {
   /** Where the next read starts: everything before it has been read (but the line in `partial`). */
   offset = 0;
@@ -18,49 +25,63 @@ export class TranscriptTail {
   private partial: Buffer = Buffer.alloc(0);
   /** Reading from the middle of a line, which is dropped up to its end. */
   private skipping = false;
+  /** The file it last read (its inode): another one in its place is read as new. */
+  private ino?: number;
 
-  /** `from`: the most of what's there already to take on the first read (its end); the rest is skipped. */
+  /**
+   * `from`: the most of what's there already to take on the first read (its end), and again when
+   * it's rewritten. `at`: where an earlier tail of the same file stopped (see resumeAt), to go on
+   * from there instead.
+   */
   constructor(
     readonly file: string,
-    from = TAIL_READ,
+    private from = TAIL_READ,
+    at?: number,
   ) {
+    let fd: number | undefined;
     try {
-      const fd = openSync(file, 'r');
-      try {
-        const size = fstatSync(fd).size;
-        this.offset = Math.max(0, size - from);
-        this.skipping = this.offset > 0;
-      } finally {
-        closeSync(fd);
-      }
+      fd = openSync(file, 'r');
+      const st = fstatSync(fd);
+      this.ino = st.ino;
+      if (at !== undefined && at >= 0 && at <= st.size) this.offset = at;
+      else this.restart(fd, st.size, from);
     } catch {
       // Not there (yet): read from its start once it is.
+    } finally {
+      if (fd !== undefined) closeSync(fd);
     }
   }
 
+  /** Where a new tail could go on from: the start of the line it's in the middle of (undefined: mid-skip). */
+  get resumeAt(): number | undefined {
+    return this.skipping ? undefined : this.offset - this.partial.length;
+  }
+
+  /** Starts again at the last `bytes` of a file of `size`, from its first whole line. */
+  private restart(fd: number, size: number, bytes: number) {
+    this.offset = Math.max(0, size - bytes);
+    this.partial = Buffer.alloc(0);
+    this.skipping = !lineStartsAt(fd, this.offset);
+  }
+
   /**
-   * The entries written since the last read, oldest first. `reset`: the file got shorter (rewritten,
-   * or a new one put in its place), so it was read again from its end as if new.
+   * The entries written since the last read, oldest first. `reset`: the file got shorter, or another
+   * file was put in its place, so it was read again from its end as if new.
    */
   read(max = TAIL_READ): { entries: any[]; reset: boolean } {
     let fd: number | undefined;
     try {
       fd = openSync(this.file, 'r');
-      const size = fstatSync(fd).size;
+      const st = fstatSync(fd);
+      const size = st.size;
       let reset = false;
-      if (size < this.offset) {
+      if ((this.ino !== undefined && st.ino !== this.ino) || size < this.offset) {
         reset = true;
-        this.offset = Math.max(0, size - max);
-        this.partial = Buffer.alloc(0);
-        this.skipping = this.offset > 0;
+        this.restart(fd, size, Math.min(max, this.from));
       }
+      this.ino = st.ino;
       if (size === this.offset) return { entries: [], reset };
-      if (size - this.offset > max) {
-        // Too much at once: only its end, from the first whole line in it.
-        this.offset = size - max;
-        this.partial = Buffer.alloc(0);
-        this.skipping = true;
-      }
+      if (size - this.offset > max) this.restart(fd, size, max);
       const buf = Buffer.alloc(size - this.offset);
       const got = readSync(fd, buf, 0, buf.length, this.offset);
       this.offset += got;

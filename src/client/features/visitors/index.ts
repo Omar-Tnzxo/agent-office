@@ -14,6 +14,7 @@ import type { Ctx } from '../../core/context';
 import { seatBuilt } from '../../core/floors';
 import { aside, hintTitle, key } from '../../core/hint';
 import type { Parts } from '../../core/parts';
+import { canWatch } from '../visitor-watch';
 import { laptopScreen, showOnLaptop } from '../visitor-watch/screen';
 import { noOutline } from '../../core/outline';
 import { store } from '../../state';
@@ -422,10 +423,12 @@ export function installVisitors(ctx: Ctx, parts: Pick<Parts, 'visitorWatch'>) {
       const v = store.visitors.visitors.find((x) => x.id === it.seatId);
       if (!v) return { k: 'visitor', parts: [hintTitle('👋 A visitor')] };
       const subs = v.subagentCount ? ` · ${v.subagentCount} subagent${v.subagentCount === 1 ? '' : 's'}` : '';
-      return { k: `visitor|${v.id}|${v.status}|${v.subagentCount}`, parts: [hintTitle(`👋 ${v.title}`), aside(`${APP[v.app]} · ${v.folder}${subs}`), key('I', 'Watch')] };
+      // Watching is for admins (see visitor-watch).
+      const admin = canWatch();
+      return { k: `visitor|${v.id}|${v.status}|${v.subagentCount}|${admin}`, parts: [hintTitle(`👋 ${v.title}`), aside(`${APP[v.app]} · ${v.folder}${subs}`), admin ? key('I', 'Watch') : ''] };
     },
     use: (it, k) => {
-      if (k === 'E' && it.seatId) parts.visitorWatch.watch(it.seatId);
+      if (k === 'E' && it.seatId && canWatch()) parts.visitorWatch.watch(it.seatId);
     },
   });
 

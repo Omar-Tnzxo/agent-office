@@ -20,22 +20,53 @@ export interface FeedState {
 
 export const feedState = (): FeedState => ({ names: new Map() });
 
-/** Escape sequences and other control characters (but tabs and newlines) out of text read from a transcript. */
+/** Bidi embeddings and overrides (202A-202E), isolates (2066-2069), and line and paragraph separators (2028, 2029). */
+const char = (...codes: number[]) => String.fromCharCode(...codes);
+const REORDERING = new RegExp(`[${char(0x202a)}-${char(0x202e)}${char(0x2066)}-${char(0x2069)}${char(0x2028, 0x2029)}]`, 'g');
+
+/**
+ * Escape sequences, control characters (but tabs and newlines) and the characters that reorder or
+ * break text (bidi embeddings, overrides and isolates, line and paragraph separators) out of text
+ * read from a transcript, so what's shown reads in the order it was written.
+ */
 export function plain(text: string): string {
-  return text.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '').replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '');
+  return text
+    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '')
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+    .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '')
+    .replace(REORDERING, '');
+}
+
+const high = (c: number) => c >= 0xd800 && c <= 0xdbff;
+const low = (c: number) => c >= 0xdc00 && c <= 0xdfff;
+
+/** The first `n` characters of `s`, counted by code point (a pair of surrogates is never split), and how many more there were. */
+export function cutAt(s: string, n: number): { text: string; more: number } {
+  let i = 0;
+  for (let count = 0; i < s.length && count < n; count++) i += high(s.charCodeAt(i)) && low(s.charCodeAt(i + 1)) ? 2 : 1;
+  if (i >= s.length) return { text: s, more: 0 };
+  let more = 0;
+  for (let j = i; j < s.length; j++) if (!low(s.charCodeAt(j)) || !high(s.charCodeAt(j - 1))) more++;
+  return { text: s.slice(0, i), more };
 }
 
 /** One line of at most `n` characters. */
 function line(text: string, n: number): string {
-  const one = plain(text).replace(/\s+/g, ' ').trim();
-  return one.length > n ? `${one.slice(0, n - 1)}…` : one;
+  // Only its start can show: a huge one isn't cleaned whole.
+  const one = plain(cutAt(text, n * 4 + 64).text).replace(/\s+/g, ' ').trim();
+  const { text: cut, more } = cutAt(one, n);
+  return more ? `${cutAt(cut, n - 1).text}…` : one;
 }
 
-/** A body of at most `n` characters, and how much was left off. */
+/** A body of at most `n` characters (code points), and how many were left off. */
 export function capped(text: string, n = WATCH_BODY): { body: string; cut?: number } {
-  const clean = plain(text).replace(/\s+$/, '');
-  return clean.length > n ? { body: clean.slice(0, n), cut: clean.length - n } : { body: clean };
+  const { text: body, more } = cutAt(plain(text).replace(/\s+$/, ''), n);
+  return more ? { body, cut: more } : { body };
 }
+
+/** The most of each side of a change that's diffed: the diff is cut to WATCH_BODY after anyway. */
+const DIFF_SIDE = 4 * WATCH_BODY;
+const side = (v: unknown) => cutAt(str(v), DIFF_SIDE).text;
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 
@@ -178,10 +209,10 @@ function isStep(e: any, sidechain: boolean): boolean {
 /** What a tool call has to show beyond its headline: the change, the file, the list, the question. */
 function toolBody(name: string, input: any): { body?: string; cut?: number; diff?: true } {
   const i = input && typeof input === 'object' ? input : {};
-  if (name === 'Edit') return { ...capped(diffOf(str(i.old_string), str(i.new_string))), diff: true };
-  if (name === 'MultiEdit' && Array.isArray(i.edits)) return { ...capped(i.edits.map((e: any) => diffOf(str(e?.old_string), str(e?.new_string))).join('\n@@\n')), diff: true };
-  if (name === 'Write') return { ...capped(diffOf('', str(i.content))), diff: true };
-  if (name === 'NotebookEdit') return { ...capped(diffOf('', str(i.new_source))), diff: true };
+  if (name === 'Edit') return { ...capped(diffOf(side(i.old_string), side(i.new_string))), diff: true };
+  if (name === 'MultiEdit' && Array.isArray(i.edits)) return { ...capped(i.edits.slice(0, 50).map((e: any) => diffOf(side(e?.old_string), side(e?.new_string))).join('\n@@\n')), diff: true };
+  if (name === 'Write') return { ...capped(diffOf('', side(i.content))), diff: true };
+  if (name === 'NotebookEdit') return { ...capped(diffOf('', side(i.new_source))), diff: true };
   if (name === 'TodoWrite' && Array.isArray(i.todos)) {
     const mark = (s: unknown) => (s === 'completed' ? '[x]' : s === 'in_progress' ? '[>]' : '[ ]');
     return capped(i.todos.map((t: any) => `${mark(t?.status)} ${line(str(t?.content) || str(t?.activeForm), 200)}`).join('\n'));
@@ -248,7 +279,8 @@ export function watchItems(e: any, state: FeedState, sidechain = false): FeedIte
 
 /** The last `n` lines of a command's output that have something on them. */
 function lastLines(text: string, n: number): string[] {
-  return plain(text)
+  // Only its end can show: a huge output isn't cleaned whole.
+  return plain(text.slice(-8192))
     .split('\n')
     .map((l) => l.trimEnd())
     .filter((l) => l.trim())
@@ -297,11 +329,11 @@ export function screenOf(tail: readonly any[]): ScreenLine[] {
       lines.push({ k: ASKS.has(name) ? 'ask' : 'do', t: line(toolHeadline(name, input, true, cwd), SCREEN_CHARS) });
       if (name === 'Edit' || name === 'MultiEdit') {
         const edit = name === 'Edit' ? input : Array.isArray(input.edits) ? input.edits[0] : undefined;
-        const { del, add } = firstChange(str(edit?.old_string), str(edit?.new_string));
+        const { del, add } = firstChange(side(edit?.old_string), side(edit?.new_string));
         if (del !== undefined) lines.push({ k: 'del', t: `- ${line(del, SCREEN_CHARS)}` });
         if (add !== undefined) lines.push({ k: 'add', t: `+ ${line(add, SCREEN_CHARS)}` });
       } else if (name === 'Write') {
-        const first = str(input.content).split('\n').find((l) => l.trim());
+        const first = side(input.content).split('\n').find((l) => l.trim());
         if (first) lines.push({ k: 'add', t: `+ ${line(first, SCREEN_CHARS)}` });
       }
       const result = results.get(str(b.id));

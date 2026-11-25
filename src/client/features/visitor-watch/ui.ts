@@ -9,7 +9,7 @@ import '../../ui/termtabs.css';
 import type { Visitor, VisitorApp, WatchAgent, WatchItem } from '../../../shared/protocol';
 import { claudeModelName } from '../../../shared/providers';
 import { STATUS_LABEL, h, openModal } from '../../ui/dom';
-import { markdown } from '../../ui/markdown';
+import { transcriptMarkdown } from './markdown';
 import { subagentColor } from '../../world/character/subagent';
 
 /** A tab keeps at most this many items on the page; older ones go. */
@@ -108,7 +108,8 @@ function itemEl(it: WatchItem, tab: Tab): HTMLElement | null {
     case 'prompt':
       return h('div.vw-item.vw-prompt', {}, h('div.vw-label', {}, '🧑 Prompt', clock(it.at)), textBlock(it.body ?? ''), cutNote(it));
     case 'text':
-      return h('div.vw-item.vw-say', {}, markdown(it.body ?? ''), cutNote(it));
+      // Never the app's markdown(): nothing a transcript says may load from the network (see ./markdown.ts).
+      return h('div.vw-item.vw-say', {}, transcriptMarkdown(it.body ?? ''), cutNote(it));
     case 'think':
       return h('details.vw-item.vw-think', {}, h('summary', {}, '💭 Thinking', clock(it.at)), textBlock(it.body ?? ''), cutNote(it));
     case 'tool': {
@@ -231,9 +232,19 @@ export function openWatchWindow(v: Visitor, onClose: () => void): WatchView {
       }
     }
     tabFor('', '💬 Session');
+    // A subagent the office no longer follows takes its tab with it (the session's stays).
+    const listed = new Set(agents.map((a) => a.id));
+    for (const t of [...tabs.values()]) {
+      if (!t.id || listed.has(t.id)) continue;
+      t.wrap.remove();
+      t.pane.remove();
+      tabs.delete(t.id);
+      if (active === t.id) select('');
+    }
     for (const a of agents) tabFor(a.id, agentLabel(a)).btn.textContent = agentLabel(a);
     const touched = new Set<Tab>();
     for (const it of items) {
+      if (it.agent && !listed.has(it.agent)) continue;
       const tab = tabFor(it.agent ?? '', it.agent ? `🤖 ${it.agent}` : '💬 Session');
       const node = itemEl(it, tab);
       if (node) tab.pane.append(node);

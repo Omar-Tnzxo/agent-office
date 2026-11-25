@@ -1,13 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, truncateSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, readFileSync, renameSync, rmSync, truncateSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { SCREEN_LINES, WATCH_BODY, type Subagent, type Visitor, type VisitorsServerMsg } from '../src/shared/protocol.js';
-import { diffOf, feedState, screenOf, toolHeadline, watchItems } from '../src/server/visitors/feed.js';
+import { SCREEN_LINES, WATCH_BODY, type Visitor } from '../src/shared/protocol.js';
+import { capped, cutAt, diffOf, feedState, plain, screenOf, toolHeadline, watchItems } from '../src/server/visitors/feed.js';
 import { TranscriptTail } from '../src/server/visitors/tail.js';
-import { VisitorWatch, agentFile, type WatchTarget } from '../src/server/visitors/watch.js';
-import { visitorHooks } from '../src/server/ws/handlers/visitors.js';
 import { COLS, ROWS, fit, screenRows, visitorScreen, wrap } from '../src/client/features/visitor-watch/screen.js';
 
 const line = (e: object) => `${JSON.stringify(e)}\n`;
@@ -210,133 +208,50 @@ test("a tail starts at the end of a big transcript, from its first whole line, a
   assert.deepEqual(tail.read().entries, []);
 });
 
-/** A session's transcript and a subagent's, as Claude Code lays them out, and a watch over them. */
-function session(t: test.TestContext) {
+
+test('text from a transcript loses what would reorder it, and is cut by code point', () => {
+  // Bidi embeddings, overrides and isolates, and line and paragraph separators, are gone.
+  const ch = (...codes: number[]) => String.fromCharCode(...codes);
+  assert.equal(plain(`a${ch(0x202e)}evil${ch(0x202c)} b${ch(0x2066)}x${ch(0x2069)} c${ch(0x2028)}d${ch(0x2029)}e${ch(0x202a, 0x202b, 0x202d)}`), 'aevil bx cde');
+  assert.equal(watchItems(assistant([{ type: 'text', text: `ok ${ch(0x202e)}txt.exe` }]), feedState())[0].body, 'ok txt.exe');
+  // A pair of surrogates is one character, never split.
+  assert.deepEqual(cutAt('ab😀cd', 3), { text: 'ab😀', more: 2 });
+  assert.deepEqual(cutAt('ab😀', 2), { text: 'ab', more: 1 });
+  assert.deepEqual(cutAt('short', 9), { text: 'short', more: 0 });
+  const emoji = '😀'.repeat(WATCH_BODY + 5);
+  const c = capped(emoji);
+  assert.equal([...c.body].length, WATCH_BODY);
+  assert.equal(c.cut, 5);
+  assert.ok(!/[\ud800-\udbff]$/.test(c.body), 'ends on half a character');
+  // A huge Write is cut before it's diffed, and the diff to WATCH_BODY after.
+  const [write] = watchItems(assistant([use('w', 'Write', { file_path: 'big.txt', content: 'line\n'.repeat(500_000) })]), feedState());
+  assert.equal(write.body!.length, WATCH_BODY);
+  assert.ok(write.cut! > 0 && write.cut! < 20_000, `cut ${write.cut}`);
+});
+
+test('a tail starting at a line boundary keeps that line, and treats another file in its place as new', (t) => {
   const dir = folder(t);
-  const file = path.join(dir, 'proj', '0000-aaaa.jsonl');
-  mkdirSync(path.dirname(file), { recursive: true });
-  writeFileSync(file, line(user('Start', { cwd: '/w' })) + line(assistant([use('t1', 'Bash', { command: 'ls' })])));
-  const targets = new Map<string, WatchTarget>([['s1', { file, subagents: [] }]]);
-  const watch = new VisitorWatch({ find: (id) => targets.get(id) }, 60_000);
-  t.after(() => watch.stop());
-  const inbox = (): VisitorsServerMsg[] & { send: (m: VisitorsServerMsg) => void } => {
-    const got = [] as unknown as VisitorsServerMsg[] & { send: (m: VisitorsServerMsg) => void };
-    got.send = (m) => got.push(m);
-    return got;
-  };
-  return { dir, file, targets, watch, inbox };
-}
-
-test('watching a visitor: its latest steps on opening, then only what is new, to everyone watching, and never a byte written', (t) => {
-  const { file, watch, inbox } = session(t);
-  const before = { body: readFileSync(file, 'utf8'), mtime: statSync(file).mtimeMs };
-  const a = inbox();
-  assert.equal(watch.watch('c1', 's1', a.send), true);
-  watch.poll();
-  assert.deepEqual({ body: readFileSync(file, 'utf8'), mtime: statSync(file).mtimeMs }, before);
-  assert.equal(a.length, 1);
-  const open = a[0] as Extract<VisitorsServerMsg, { t: 'visitor.feed' }>;
-  assert.equal(open.reset, true);
-  assert.deepEqual(open.items.map((i) => [i.seq, i.kind, i.head ?? i.body]), [[1, 'prompt', 'Start'], [2, 'tool', '$ ls']]);
-  assert.deepEqual(watch.counts, { sessions: 1, clients: 1, timer: true });
-  // Nothing new: nothing sent.
-  watch.poll();
-  assert.equal(a.length, 1);
-  appendFileSync(file, line(result('t1', 'a.txt')));
-  watch.poll();
-  const delta = a[1] as Extract<VisitorsServerMsg, { t: 'visitor.feed' }>;
-  assert.equal(delta.reset, undefined);
-  assert.deepEqual(delta.items.map((i) => [i.seq, i.kind, i.tool, i.body]), [[3, 'result', 'Bash', 'a.txt']]);
-  // A second watcher gets all of it, and both get what comes next.
-  const b = inbox();
-  watch.watch('c2', 's1', b.send);
-  assert.deepEqual((b[0] as Extract<VisitorsServerMsg, { t: 'visitor.feed' }>).items.map((i) => i.seq), [1, 2, 3]);
-  appendFileSync(file, line(assistant([{ type: 'text', text: 'Done.' }])));
-  watch.poll();
-  assert.equal(a.length, 3);
-  assert.equal(b.length, 2);
-  assert.deepEqual(watch.counts, { sessions: 1, clients: 2, timer: true });
-});
-
-test('watching lets go: of a window that closed, of a socket that went, and of a visitor that left', (t) => {
-  const { targets, watch, inbox } = session(t);
-  const a = inbox();
-  watch.watch('c1', 's1', a.send);
-  // Not a visitor the office lists: no feed, only word that it's gone; nothing kept.
-  const b = inbox();
-  assert.equal(watch.watch('c2', 'not-listed', b.send), false);
-  assert.deepEqual([...b], [{ t: 'visitor.gone', id: 'not-listed' }]);
-  assert.deepEqual(watch.counts, { sessions: 1, clients: 1, timer: true });
-  // A stale unwatch (for a window closed after another opened) changes nothing.
-  watch.unwatch('c1', 'other');
-  assert.deepEqual(watch.counts, { sessions: 1, clients: 1, timer: true });
-  watch.unwatch('c1', 's1');
-  assert.deepEqual(watch.counts, { sessions: 0, clients: 0, timer: false });
-
-  // A socket that closes, through the handlers' hooks.
-  const ctx = { visitors: { watch } } as any;
-  watch.watch('c3', 's1', inbox().send);
-  visitorHooks.closed!(ctx, { id: 'c3' } as any);
-  assert.deepEqual(watch.counts, { sessions: 0, clients: 0, timer: false });
-  // Going to another floor.
-  watch.watch('c4', 's1', inbox().send);
-  visitorHooks.leaving!(ctx, { id: 'c4' } as any, undefined);
-  assert.deepEqual(watch.counts, { sessions: 0, clients: 0, timer: false });
-
-  // Watching another visitor stops watching the first.
-  targets.set('s2', targets.get('s1')!);
-  watch.watch('c5', 's1', inbox().send);
-  watch.watch('c5', 's2', inbox().send);
-  assert.deepEqual(watch.counts, { sessions: 1, clients: 1, timer: true });
-
-  // The visitor leaves the office: its watchers are told, and nothing of it stays.
-  const c = inbox();
-  watch.watch('c6', 's2', c.send);
-  targets.delete('s2');
-  watch.poll();
-  assert.deepEqual(c.at(-1), { t: 'visitor.gone', id: 's2' });
-  assert.deepEqual(watch.counts, { sessions: 0, clients: 0, timer: false });
-});
-
-test("a watched visitor's subagents each get a tab, read off their own transcripts", (t) => {
-  const { file, targets, watch, inbox } = session(t);
-  const base = path.join(file.slice(0, -'.jsonl'.length), 'subagents');
-  mkdirSync(path.join(base, 'workflows', 'wf1'), { recursive: true });
-  writeFileSync(path.join(base, 'agent-a1.jsonl'), line(assistant([use('s1', 'Grep', { pattern: 'price' })], { isSidechain: true })));
-  writeFileSync(path.join(base, 'workflows', 'wf1', 'agent-b2.jsonl'), line(assistant([{ type: 'text', text: 'verifying' }], { isSidechain: true })));
-  assert.equal(agentFile(file, 'a1'), path.join(base, 'agent-a1.jsonl'));
-  assert.equal(agentFile(file, 'b2'), path.join(base, 'workflows', 'wf1', 'agent-b2.jsonl'));
-  assert.equal(agentFile(file, '../x'), undefined);
-  const sub = (id: string, title: string): Subagent => ({ id, type: 'general-purpose', title, since: 0, seenAt: 0 });
-  targets.set('s1', { file, subagents: [sub('a1', 'Find prices'), sub('b2', 'Verify')] });
-  const a = inbox();
-  watch.watch('c1', 's1', a.send);
-  const open = a[0] as Extract<VisitorsServerMsg, { t: 'visitor.feed' }>;
-  assert.deepEqual(open.agents, [
-    { id: 'a1', type: 'general-purpose', title: 'Find prices', live: true },
-    { id: 'b2', type: 'general-purpose', title: 'Verify', live: true },
-  ]);
-  assert.deepEqual(open.items.filter((i) => i.agent).map((i) => [i.agent, i.head ?? i.body]), [['a1', 'Searching: price'], ['b2', 'verifying']]);
-  // One finishes: read a last time, and its tab says so.
-  appendFileSync(path.join(base, 'agent-a1.jsonl'), line(assistant([{ type: 'text', text: 'Found 3.' }], { isSidechain: true })));
-  targets.set('s1', { file, subagents: [sub('b2', 'Verify')] });
-  watch.poll();
-  const delta = a[1] as Extract<VisitorsServerMsg, { t: 'visitor.feed' }>;
-  assert.deepEqual(delta.items.map((i) => [i.agent, i.body]), [['a1', 'Found 3.']]);
-  assert.deepEqual(delta.agents.map((x) => [x.id, x.live]), [['a1', false], ['b2', true]]);
-});
-
-test('a watched visitor with many subagents has at most 8 followed, the most recent', (t) => {
-  const { file, targets, watch, inbox } = session(t);
-  const base = path.join(file.slice(0, -'.jsonl'.length), 'subagents');
-  mkdirSync(base, { recursive: true });
-  const subs: Subagent[] = Array.from({ length: 10 }, (_, i) => {
-    writeFileSync(path.join(base, `agent-s${i}.jsonl`), line(assistant([{ type: 'text', text: `agent ${i}` }], { isSidechain: true })));
-    return { id: `s${i}`, type: 'Explore', since: 0, seenAt: 100 - i };
-  });
-  targets.set('s1', { file, subagents: subs });
-  const a = inbox();
-  watch.watch('c1', 's1', a.send);
-  const open = a[0] as Extract<VisitorsServerMsg, { t: 'visitor.feed' }>;
-  assert.deepEqual(open.agents.map((x) => x.id), ['s0', 's1', 's2', 's3', 's4', 's5', 's6', 's7']);
+  const file = path.join(dir, 's.jsonl');
+  const first = line({ n: 1 });
+  writeFileSync(file, first + line({ n: 2 }));
+  // Starting exactly where the second line begins: it's whole, so it's read.
+  assert.deepEqual(new TranscriptTail(file, Buffer.byteLength(line({ n: 2 }))).read().entries.map((e) => e.n), [2]);
+  // One byte further back, the start is mid-line: that line is skipped.
+  assert.deepEqual(new TranscriptTail(file, Buffer.byteLength(line({ n: 2 })) + 1).read().entries.map((e) => e.n), [2]);
+  assert.deepEqual(new TranscriptTail(file, Buffer.byteLength(line({ n: 2 })) - 1).read().entries, []);
+  // Another file put in its place, longer than the old one: read as new, from its end.
+  const tail = new TranscriptTail(file);
+  tail.read();
+  const other = path.join(dir, 'other.jsonl');
+  writeFileSync(other, line({ n: 7 }) + line({ n: 8 }) + line({ n: 9, pad: 'x'.repeat(40) }));
+  renameSync(other, file);
+  const again = tail.read();
+  assert.equal(again.reset, true);
+  assert.deepEqual(again.entries.map((e) => e.n), [7, 8, 9]);
+  // Where it stopped, for a tail that goes on from there; a half-written line is read again.
+  appendFileSync(file, '{"n":10');
+  tail.read();
+  const at = tail.resumeAt!;
+  appendFileSync(file, '}\n');
+  assert.deepEqual(new TranscriptTail(file, 10, at).read().entries.map((e) => e.n), [10]);
 });

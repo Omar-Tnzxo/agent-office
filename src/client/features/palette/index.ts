@@ -82,13 +82,13 @@ export function installPalette(ctx: Ctx, parts: PaletteParts) {
       });
     }
 
-    // Claude Code sessions the office didn't start: Enter watches one over its shoulder.
-    for (const v of store.visitors.visitors) {
+    // Claude Code sessions the office didn't start: Enter watches one over its shoulder (admins only).
+    for (const v of store.me.admin ? store.visitors.visitors : []) {
       out.push({ icon: '👀', kind: 'Visitor', title: v.title, detail: ['Watch', v.folder, STATUS_LABEL[v.status]].join(' · '), keywords: [v.branch, 'visitor', 'watch'], open: () => parts.visitorWatch.watch(v.id) });
     }
 
     const free = nearestFreeDesk();
-    const hireAt =(d: DeskDef) => () => actions.hireAtDesk(d.id);
+    const hireAt = (d: DeskDef) => () => actions.hireAtDesk(d.id);
     out.push({
       icon: '✨',
       kind: 'Action',
