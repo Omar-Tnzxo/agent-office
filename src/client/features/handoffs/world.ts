@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import type { HandoffKind } from '../../../shared/protocol';
 import { REVIEW_TABLE } from '../../../shared/tickets';
-import { mergeByMaterial, mesh, textPlane, toon, toonUnique } from '../../world/toon';
+import type { TextKey } from '../../i18n';
+import { mergeByMaterial, mesh, phrasePlane, textPlane, toon, toonUnique } from '../../world/toon';
 import type { Collider, Interactable } from '../../world/types';
 import type { Fixture } from '../../world/office/fixture';
 import { STACK_SHOWN, STACK_STEP, folderModel, trayModel } from './folder';
@@ -68,13 +69,14 @@ function buildReviewTable(colliders: Collider[]): { table: ReviewTable; interact
   parts.add(mesh(new THREE.BoxGeometry(W - 0.1, 0.62, 0.04), toon('#c9a26b'), 0, H + 0.58, -D / 2 + 0.06));
   const group = new THREE.Group();
   group.add(mergeByMaterial(parts));
-  const sign = textPlane('🗂️ Review', { size: 40, bg: '#fffaf3' });
+  // Its words in the viewer's language, painted again on a switch (phrasePlane).
+  const sign = phrasePlane('tickets.sign', { size: 40, bg: '#fffaf3' });
   sign.position.set(0, H + 1.12, -D / 2 + 0.1);
   group.add(sign);
-  const labels: Record<TrayName, string> = { review: '🔍 In review', waiting: '⏳ Waiting for you' };
+  const labels: Record<TrayName, TextKey> = { review: 'tickets.tray.review', waiting: 'tickets.tray.waiting' };
   const trays = {} as Record<TrayName, THREE.Group>;
   for (const name of Object.keys(TRAYS) as TrayName[]) {
-    const label = textPlane(labels[name], { size: 26, bg: name === 'waiting' ? '#ffd6a5' : '#caf0f8' });
+    const label = phrasePlane(labels[name], { size: 26, bg: name === 'waiting' ? '#ffd6a5' : '#caf0f8' });
     label.position.set(TRAYS[name] * 1.3, H + 0.6, -D / 2 + 0.09);
     group.add(label);
     const tray = trayModel();

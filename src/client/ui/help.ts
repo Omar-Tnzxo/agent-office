@@ -1,5 +1,6 @@
 // The rows of the controls help (openHelp in hud.ts), in the order it shows them: a key or an emoji, and
-// what it does. A new control is a new row here, with its words in i18n/strings/panels-help.ts.
+// what it does. A new control is a new row here, with its words in i18n/strings/panels-help.ts (or in
+// its feature's own area, like watch.help and tickets.help).
 
 import { t, type TextKey } from '../i18n';
 import { IS_MAC } from './termkeys';
@@ -26,7 +27,7 @@ export const HELP_ROWS: readonly (readonly [string, string])[] = [
   row('🤖', 'panels.help.agents'),
   row('📝', 'panels.help.whiteboard'),
   row('🕹️', 'panels.help.arcade'),
-  ['🗂️', "On a floor whose repository keeps its work as tickets (work/<id>/ticket.md), visitors carry a folder to whoever takes their work next, and each one's desk has an in-tray of what waits on it. Press E at the review table by the meeting room to read what's in review and what waits on you (read-only)"],
+  row('🗂️', 'tickets.help'),
   row('🎉', 'panels.help.gong'),
   row('N', 'panels.help.next'),
   row('🏀', 'panels.help.hoop'),
@@ -45,7 +46,7 @@ export const HELP_ROWS: readonly (readonly [string, string])[] = [
   row('Q', 'panels.help.putBack'),
   row('🐶', 'panels.help.dog'),
   row('O', 'panels.help.pr'),
-  ['I', "Watch a visitor (a Claude Code session the office didn't start: the Claude app, a terminal) over its shoulder: its prompts, what it writes, every tool call with its diff or output, and a tab per subagent, live. At a visitor, at the desk one sits at, or E on one standing. Admins only, and only a visitor on your floor. Its laptop shows its latest steps, for everyone. Only to look at"],
+  row('I', 'watch.help'),
   row('T', 'panels.help.chat'),
   row('G / 1-6', 'panels.help.emote'),
   row('/', 'panels.help.search'),

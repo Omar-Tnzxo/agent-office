@@ -1,6 +1,9 @@
 import './ui.css';
 import type { ApprovalSummary, TicketDetail, TicketFile, TicketSummary } from '../../../shared/protocol';
 import { roleName } from '../../../shared/tickets';
+import { onLang, t, tn } from '../../i18n';
+import { ltr } from '../../i18n/dom';
+import { serverText } from '../../i18n/server';
 import { store } from '../../state';
 import { h, openModal, setDoing, toast } from '../../ui/dom';
 import { markdownHtml } from '../../ui/markdown';
@@ -9,6 +12,8 @@ import { reviewHtml } from './md';
 // The review table's window: what waits on the owner and what's in review on this floor, down the
 // side, and the one picked beside them, read-only: an approval's request, or a ticket (its goal and
 // chain log, and the files of its stages to open). Nothing is decided here: the window says where.
+// Its own words are in the viewer's language; a ticket's text, stages and roles are as the files
+// have them, each block reading in its own direction, and paths left to right.
 
 /** One thing in the list: an approval waiting on the owner, or a ticket. */
 type Item = { kind: 'approval'; a: ApprovalSummary } | { kind: 'ticket'; t: TicketSummary };
@@ -16,7 +21,7 @@ type Item = { kind: 'approval'; a: ApprovalSummary } | { kind: 'ticket'; t: Tick
 const keyOf = (it: Item) => (it.kind === 'approval' ? `a:${it.a.id}` : `t:${it.t.folder}`);
 
 /** A role as the floor calls it: the name on its card, else its slug written out. */
-export const nameOfRole = (slug: string | undefined) => (slug ? (store.tickets.roles[slug] ?? roleName(slug)) : 'nobody');
+export const nameOfRole = (slug: string | undefined) => (slug ? (store.tickets.roles[slug] ?? roleName(slug)) : t('tickets.nobody'));
 
 /** `text` without the front matter it opens with: those fields are shown as a list over it. */
 function body(text: string): { fields: [string, string][]; rest: string } {
@@ -29,6 +34,9 @@ function body(text: string): { fields: [string, string][]; rest: string } {
     .map((x) => [x[1], x[2]] as [string, string]);
   return { fields, rest: text.slice(m[0].length) };
 }
+
+/** The note a file cut short ends with. */
+const cutShort = (cut: boolean | undefined) => (cut ? `\n\n*(${t('tickets.cutShort')})*` : '');
 
 /**
  * A file's Markdown, rendered so it loads nothing (a picture or a video is its name and where it is,
@@ -59,24 +67,42 @@ export function openReview(deps: ReviewDeps) {
   const side = h('aside.rv-side');
   const bar = h('div.rv-bar');
   const page = h('div.rv-page', { tabindex: -1 });
-  const el = h(
-    'div.modal.review',
-    { role: 'dialog', 'aria-label': 'Review table' },
-    h('header', {}, h('h2', {}, '🗂️ Review table', deps.project ? h('span.rv-project', {}, ` · ${deps.project}`) : '')),
-    h('div.body', {}, side, h('article.rv-reader', {}, bar, page)),
-    h('footer', {}, h('span.grow', {}, '👀 Read-only. Approvals are decided in the repository (approvals/pending, moved to approvals/decided), never from the office.')),
-  );
+  const heading = h('h2', {});
+  const foot = h('span.grow', {});
+  const el = h('div.modal.review', { role: 'dialog' }, h('header', {}, heading), h('div.body', {}, side, h('article.rv-reader', {}, bar, page)), h('footer', {}, foot));
   let current: string | null = null;
   let opening = 0;
-  const off = store.on('tickets', () => renderList());
-  const modal = openModal(el, { doing: '🗂️ at the review table', reading: true, onClose: () => off() });
+  /** What's open, to open again in the language now after a switch. */
+  let again: (() => void) | null = null;
+
+  function words() {
+    el.setAttribute('aria-label', t('tickets.name'));
+    heading.replaceChildren(`🗂️ ${t('tickets.name')}`, deps.project ? h('span.rv-project', {}, ' · ', ltr(deps.project)) : '');
+    foot.textContent = t('tickets.window.foot');
+  }
+  words();
+  const offTickets = store.on('tickets', () => renderList());
+  const offLang = onLang(() => {
+    words();
+    renderList();
+    again?.();
+  });
+  // What you're doing goes to the others in English; each of them reads it in their own language (i18n/server.ts).
+  const modal = openModal(el, {
+    doing: '🗂️ at the review table',
+    reading: true,
+    onClose: () => {
+      offTickets();
+      offLang();
+    },
+  });
 
   const items = () => {
     const s = store.tickets;
     return {
       waiting: s.approvals.map((a): Item => ({ kind: 'approval', a })),
-      review: s.tickets.filter((t) => t.review).map((t): Item => ({ kind: 'ticket', t })),
-      open: s.tickets.filter((t) => !t.review).map((t): Item => ({ kind: 'ticket', t })),
+      review: s.tickets.filter((tk) => tk.review).map((tk): Item => ({ kind: 'ticket', t: tk })),
+      open: s.tickets.filter((tk) => !tk.review).map((tk): Item => ({ kind: 'ticket', t: tk })),
     };
   };
 
@@ -85,31 +111,37 @@ export function openReview(deps: ReviewDeps) {
     const [title, sub] =
       it.kind === 'approval'
         ? [it.a.decision ?? it.a.id, [it.a.sent, it.a.ticket].filter(Boolean).join(' · ')]
-        : [it.t.title, `${it.t.stage || it.t.status} → ${nameOfRole(it.t.next)}${it.t.due ? ` · not before ${it.t.due}` : ''}`];
-    const li = h('li.rv-item', { class: key === current ? 'open' : '', title: it.kind === 'approval' ? `approvals/pending/${it.a.id}.md` : `work/${it.t.folder}/ticket.md` }, h('div.rv-title', { dir: 'auto' }, title), h('div.rv-sub', {}, sub));
+        : [it.t.title, [t('tickets.row.next', { stage: it.t.stage || it.t.status, role: nameOfRole(it.t.next) }), it.t.due ? t('tickets.row.due', { due: it.t.due }) : ''].filter(Boolean).join(' · ')];
+    const li = h(
+      'li.rv-item',
+      { class: key === current ? 'open' : '', title: it.kind === 'approval' ? `approvals/pending/${it.a.id}.md` : `work/${it.t.folder}/ticket.md` },
+      h('div.rv-title', { dir: 'auto' }, title),
+      h('div.rv-sub', { dir: 'auto' }, sub),
+    );
     li.addEventListener('click', () => void (it.kind === 'approval' ? openApproval(it.a.id) : openTicket(it.t.folder)));
     return li;
   };
 
-  const section = (title: string, list: Item[], empty: string) => h('section.rv-section', {}, h('h3', {}, `${title} (${list.length})`), list.length ? h('ul.rv-list', {}, ...list.map(row)) : h('p.rv-none', {}, empty));
+  const section = (title: string, list: Item[], empty: string) => h('section.rv-section', {}, h('h3', {}, title), list.length ? h('ul.rv-list', {}, ...list.map(row)) : h('p.rv-none', {}, empty));
 
   function renderList() {
     if (!el.isConnected) return;
     const { waiting, review, open } = items();
     const more = store.tickets.more;
     side.replaceChildren(
-      section('⏳ Waiting for you', waiting, 'Nothing waits on you.'),
-      section('🔍 In review', review, 'Nothing is in review.'),
-      section('📋 Other open tickets', open, more ? '' : 'No other open tickets.'),
-      more ? h('p.rv-none', {}, `…and ${more} more open`) : '',
+      section(t('tickets.section.waiting', { n: waiting.length }), waiting, t('tickets.empty.waiting')),
+      section(t('tickets.section.review', { n: review.length }), review, t('tickets.empty.review')),
+      section(t('tickets.section.open', { n: open.length }), open, more ? '' : t('tickets.empty.open')),
+      more ? h('p.rv-none', {}, tn('tickets.more', more)) : '',
     );
   }
 
-  const facts = (pairs: [string, string | undefined][]) => h('dl.rv-facts', {}, ...pairs.filter(([, v]) => v).flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v!)]));
+  const facts = (pairs: [string, string | undefined][]) => h('dl.rv-facts', {}, ...pairs.filter(([, v]) => v).flatMap(([k, v]) => [h('dt', {}, k), h('dd', { dir: 'auto' }, v!)]));
 
   /** Puts `node` on the page, under a bar saying what it is (and the way back, from a stage file). */
-  function show(key: string, crumbs: (string | HTMLElement)[], node: HTMLElement, doing: string) {
+  function show(key: string, crumbs: (string | HTMLElement)[], node: HTMLElement, doing: string, reopen: () => void) {
     current = key;
+    again = reopen;
     bar.replaceChildren(...crumbs);
     page.replaceChildren(node);
     page.scrollTop = 0;
@@ -123,75 +155,84 @@ export function openReview(deps: ReviewDeps) {
       const r = await getJson<T>(url);
       return mine === opening && el.isConnected ? r : undefined;
     } catch (err) {
-      if (mine === opening) toast(`🗂️ Couldn't open ${what}: ${(err as Error).message}`, 'warn');
+      if (mine === opening) toast(t('tickets.openFailed', { what, why: serverText((err as Error).message) }), 'warn');
       return undefined;
     }
   }
 
+  /** A path in the bar over the page: it reads left to right in either language. */
+  const path = (dir: string, name: string) => h('bdi.rv-path', { dir: 'ltr' }, h('span.rv-dir', {}, dir), name);
+
   async function openApproval(id: string) {
-    const path = `approvals/pending/${id}.md`;
-    const f = await load<TicketFile>(`/api/tickets/file?${q({ path })}`, path);
+    const file = `approvals/pending/${id}.md`;
+    const f = await load<TicketFile>(`/api/tickets/file?${q({ path: file })}`, file);
     if (!f) return;
     const { fields, rest } = body(f.text);
     const get = (k: string) => fields.find(([key]) => key === k)?.[1];
     const ticket = (get('ticket') ?? '').replace(/^work\//, '').replace(/\/+$/, '');
-    const link = ticket ? h('button.btn.rv-link', { type: 'button' }, `📋 Open the ticket ${ticket}`) : '';
+    const link = ticket ? h('button.btn.rv-link', { type: 'button' }, t('tickets.openTicket', { id: ticket })) : '';
     if (link) link.addEventListener('click', () => void openTicket(ticket));
     const node = h(
       'div',
       {},
-      h('p.rv-note', {}, '⏳ This waits on you. Decide in the repository: the request moves to approvals/decided once you have. Nothing here approves it.'),
+      h('p.rv-note', {}, t('tickets.approvalNote')),
       facts([
-        ['Decision', get('decision_needed')],
-        ['Sent', get('sent')],
+        [t('tickets.fact.decision'), get('decision_needed')],
+        [t('tickets.fact.sent'), get('sent')],
       ]),
       link,
-      render(rest + (f.cut ? '\n\n*(cut short)*' : '')),
+      render(rest + cutShort(f.cut)),
     );
-    show(`a:${id}`, [h('span.rv-dir', {}, 'approvals/pending/'), `${id}.md`], node, `🗂️ reading the request ${id}`);
+    show(`a:${id}`, [path('approvals/pending/', `${id}.md`)], node, `🗂️ reading the request ${id}`, () => void openApproval(id));
   }
 
   async function openTicket(id: string) {
-    const d = await load<TicketDetail>(`/api/tickets/ticket?${q({ id })}`, `the ticket ${id}`);
+    const d = await load<TicketDetail>(`/api/tickets/ticket?${q({ id })}`, t('tickets.theTicket', { id }));
     if (!d) return;
     const { fields, rest } = body(d.text);
     const get = (k: string) => fields.find(([key]) => key === k)?.[1];
     const files = h(
       'div.rv-files',
       {},
-      h('span.rv-files-label', {}, 'Stage files:'),
+      h('span.rv-files-label', {}, t('tickets.stageFiles')),
       ...d.files
         .filter((f) => f.name !== 'ticket.md')
         .map((f) => {
-          const b = h('button.btn.rv-file', { type: 'button', title: `${f.size} bytes` }, `📄 ${f.name}`);
+          const b = h('button.btn.rv-file', { type: 'button', title: tn('tickets.bytes', f.size) }, '📄 ', ltr(f.name));
           b.addEventListener('click', () => void openFile(id, f.name));
           return b;
         }),
     );
-    if (d.files.length <= 1) files.append(h('span.rv-none', {}, 'none yet'));
+    if (d.files.length <= 1) files.append(h('span.rv-none', {}, t('tickets.noneYet')));
     const node = h(
       'div',
       {},
       facts([
-        ['Stage', get('stage')],
-        ['Status', get('status')],
-        ['Next', get('next_role') ? nameOfRole(get('next_role')) : undefined],
-        ['Due', get('due')],
-        ['Line', get('line')],
+        [t('tickets.fact.stage'), get('stage')],
+        [t('tickets.fact.status'), get('status')],
+        [t('tickets.fact.next'), get('next_role') ? nameOfRole(get('next_role')) : undefined],
+        [t('tickets.fact.due'), get('due')],
+        [t('tickets.fact.line'), get('line')],
       ]),
       files,
       render(rest),
     );
-    show(`t:${id}`, [h('span.rv-dir', {}, 'work/'), `${id}/ticket.md`], node, `🗂️ reading the ticket ${id}`);
+    show(`t:${id}`, [path('work/', `${id}/ticket.md`)], node, `🗂️ reading the ticket ${id}`, () => void openTicket(id));
   }
 
   async function openFile(id: string, name: string) {
-    const path = `work/${id}/${name}`;
-    const f = await load<TicketFile>(`/api/tickets/file?${q({ path })}`, name);
+    const file = `work/${id}/${name}`;
+    const f = await load<TicketFile>(`/api/tickets/file?${q({ path: file })}`, name);
     if (!f) return;
-    const back = h('button.btn.rv-back', { type: 'button' }, '← Ticket');
+    const back = h('button.btn.rv-back', { type: 'button' }, t('tickets.back'));
     back.addEventListener('click', () => void openTicket(id));
-    show(`t:${id}`, [back, h('span.rv-dir', {}, `work/${id}/`), name], render(body(f.text).rest + (f.cut ? '\n\n*(cut short)*' : '')), `🗂️ reading ${name}`);
+    show(`t:${id}`, [back, path(`work/${id}/`, name)], render(body(f.text).rest + cutShort(f.cut)), `🗂️ reading ${name}`, () => void openFile(id, name));
+  }
+
+  /** The page with nothing on it, in the language now. */
+  function nothing() {
+    again = nothing;
+    page.replaceChildren(h('div.rv-empty', {}, t('tickets.nothingOpen')));
   }
 
   renderList();
@@ -199,5 +240,5 @@ export function openReview(deps: ReviewDeps) {
   const first = deps.start ?? [...waiting, ...review, ...open].map(keyOf)[0];
   if (first?.startsWith('a:')) void openApproval(first.slice(2));
   else if (first?.startsWith('t:')) void openTicket(first.slice(2));
-  else page.replaceChildren(h('div.rv-empty', {}, '📭 Nothing open on this floor.'));
+  else nothing();
 }

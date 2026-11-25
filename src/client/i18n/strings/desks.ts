@@ -182,11 +182,8 @@ export const en = {
   'desks.visitor.app.cli': '⌨️ Terminal',
   'desks.visitor.app.ide': '🧩 IDE',
   'desks.visitor.app.other': '🤖 Claude Code',
-  'desks.visitor.waitingOnYou': '⏳ waiting on you',
-  'desks.visitor.working': 'working…',
   'desks.visitor.aVisitor': '👋 A visitor',
   'desks.visitor.subagents': { one: '{n} subagent', other: '{n} subagents' },
-  'desks.visitor.lookOnly': 'only to look at',
   ...rooms.en,
 } as const satisfies Strings;
 
@@ -376,10 +373,7 @@ export const ar: Arabic<typeof en> = {
   'desks.visitor.app.cli': '⌨️ الطرفية',
   'desks.visitor.app.ide': '🧩 IDE',
   'desks.visitor.app.other': '🤖 Claude Code',
-  'desks.visitor.waitingOnYou': '⏳ بانتظارك',
-  'desks.visitor.working': 'يعمل…',
   'desks.visitor.aVisitor': '👋 زائر',
   'desks.visitor.subagents': { zero: 'لا وكلاء فرعيين', one: 'وكيل فرعي واحد', two: 'وكيلان فرعيان', few: '{n} وكلاء فرعيين', many: '{n} وكيلًا فرعيًا', other: '{n} وكيل فرعي' },
-  'desks.visitor.lookOnly': 'للمشاهدة فقط',
   ...rooms.ar,
 };

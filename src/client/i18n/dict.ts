@@ -14,12 +14,14 @@ import * as pages from './strings/pages';
 import * as panels from './strings/panels';
 import * as server from './strings/server';
 import * as settings from './strings/settings';
+import * as tickets from './strings/tickets';
 import * as toys from './strings/toys';
+import * as watch from './strings/watch';
 import * as work from './strings/work';
 import * as world from './strings/world';
 
 /** Each area by name, for the tests. */
-export const AREAS = { character, common, desks, github, hire, hud, login, pages, panels, server, settings, toys, work, world };
+export const AREAS = { character, common, desks, github, hire, hud, login, pages, panels, server, settings, tickets, toys, watch, work, world };
 
 export const EN = {
   ...common.en,
@@ -36,6 +38,8 @@ export const EN = {
   ...world.en,
   ...server.en,
   ...pages.en,
+  ...watch.en,
+  ...tickets.en,
 };
 
 export const AR = {
@@ -53,6 +57,8 @@ export const AR = {
   ...world.ar,
   ...server.ar,
   ...pages.ar,
+  ...watch.ar,
+  ...tickets.ar,
 };
 
 export type Key = keyof typeof EN;

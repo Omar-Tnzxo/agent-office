@@ -64,6 +64,23 @@ function activeWindow(s: ScreenState, width: number, height: number, preferredRo
   return { top, rows, cols, first: contentFirst, last: contentLast };
 }
 
+/**
+ * A run with Arabic (or another right-to-left script) in it, in its cells: in the office's canvas font,
+ * which has those letters, shaped and read in its own direction (a right-to-left one from the end of
+ * its cells), and smaller if it would spill out of them, since its letters aren't a terminal's width.
+ */
+function paintWords(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, width: number, size: number, weight: number) {
+  ctx.font = `${weight} ${size}px ${FONT}`;
+  const wide = ctx.measureText(text).width;
+  if (wide > width) ctx.font = `${weight} ${Math.max(4, (size * width) / wide)}px ${FONT}`;
+  dirFor(ctx, text);
+  const rtl = ctx.direction === 'rtl';
+  ctx.textAlign = rtl ? 'right' : 'left';
+  ctx.fillText(text, rtl ? x + width : x, y);
+  ctx.textAlign = 'left';
+  ctx.direction = 'ltr';
+}
+
 /** Paints a terminal screen onto a canvas. Shared by the 3D laptops and the HUD previews. */
 export function paintScreen(ctx: CanvasRenderingContext2D, w: number, h: number, s: ScreenState | undefined, placeholder?: string, zoomRows = 0) {
   ctx.fillStyle = TERM_THEME.background;
@@ -116,10 +133,14 @@ export function paintScreen(ctx: CanvasRenderingContext2D, w: number, h: number,
         ctx.fillRect(px, py, len * charW + 0.5, lineH + 0.5);
       }
       if (text.trim()) {
-        ctx.font = `${flags & FLAG_BOLD ? 700 : 400} ${fontSize}px ui-monospace, Menlo, Consolas, monospace`;
+        const weight = flags & FLAG_BOLD ? 700 : 400;
         ctx.globalAlpha = flags & FLAG_DIM ? 0.55 : 1;
         ctx.fillStyle = fg;
-        ctx.fillText(text, px, py + (lineH - fontSize) / 2);
+        if (hasRtl(text)) paintWords(ctx, text, px, py + (lineH - fontSize) / 2, len * charW, fontSize, weight);
+        else {
+          ctx.font = `${weight} ${fontSize}px ui-monospace, Menlo, Consolas, monospace`;
+          ctx.fillText(text, px, py + (lineH - fontSize) / 2);
+        }
         ctx.globalAlpha = 1;
       }
       x += len;

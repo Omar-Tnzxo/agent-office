@@ -71,7 +71,7 @@ export function installHud(ctx: Ctx, core: CoreState, parts: HudParts) {
       { id: 'search', icon: '🔎', label: say('hud.act.search'), section: 'Open', key: '/', title: say('hud.act.search.title'), run: waiting.showSearch },
       // The office has its bookshelf for them; a map of its own may not.
       { id: 'docs', icon: '📚', label: say('hud.act.docs'), section: 'Open', shown: () => !inOffice(), title: say('hud.act.docs.title'), run: parts.bookshelf.showBookshelf },
-      { id: 'review', icon: '🗂️', label: 'Review table', section: 'Open', shown: () => store.tickets.on && store.me.admin, count: () => store.tickets.approvals.length, title: () => 'What waits on you and what’s in review, from the floor’s tickets', run: () => parts.handoffs.showReview() },
+      { id: 'review', icon: '🗂️', label: say('tickets.name'), section: 'Open', shown: () => store.tickets.on && store.me.admin, count: () => store.tickets.approvals.length, title: say('tickets.menuTitle'), run: () => parts.handoffs.showReview() },
       { id: 'elevator', icon: '🛗', label: () => t(inOffice() ? 'hud.act.elevator' : 'hud.act.floors'), section: 'Open', count: () => store.floors.reduce((n, f) => n + (f.id === store.floor ? 0 : f.waiting), 0), title: () => t(inOffice() ? 'hud.act.elevator.title' : 'hud.act.floors.title'), run: travel.showElevator },
       { id: 'roof', icon: '🍸', label: say('hud.act.roof'), section: 'Open', shown: () => !core.upTop && inOffice() && builtFloors().length > 0, title: say('hud.act.roof.title'), run: () => travel.ride(ROOF) },
       // In voice, V is push to talk, so leaving is only from here.

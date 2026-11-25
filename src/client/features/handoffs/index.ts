@@ -13,6 +13,7 @@ import type { Ctx } from '../../core/context';
 import { aside, hintTitle, key, onE } from '../../core/hint';
 import { noOutline } from '../../core/outline';
 import type { Parts } from '../../core/parts';
+import { t, tn } from '../../i18n';
 import { store } from '../../state';
 import { toast } from '../../ui/dom';
 import { Errand, dropInto, type Destination, type Flight } from './errand';
@@ -49,9 +50,9 @@ export function installHandoffs(ctx: Ctx, parts: HandoffParts) {
   const now = () => performance.now() / 1000;
 
   function showReview() {
-    if (!store.me.admin) return toast('Only admins can read the tickets at the review table');
-    if (!store.floor) return toast('Take the elevator to a floor first');
-    if (!store.tickets.on) return toast("This floor's repository keeps no tickets (work/<id>/ticket.md)");
+    if (!store.me.admin) return toast(t('tickets.adminsOnly'));
+    if (!store.floor) return toast(t('tickets.noFloor'));
+    if (!store.tickets.on) return toast(t('tickets.none'));
     openReview({ floor: store.floor, project: store.project?.name });
   }
 
@@ -142,7 +143,8 @@ export function installHandoffs(ctx: Ctx, parts: HandoffParts) {
       const review = s.tickets.filter((t) => t.review).length;
       const waiting = s.approvals.length;
       const admin = store.me.admin;
-      return { k: `${review}|${waiting}|${admin}`, parts: [hintTitle('🗂️ Review table'), aside(`${review} in review · ${waiting} waiting for you${admin ? '' : ' · for admins'}`), ...(admin ? [key('E', 'Look through it')] : [])] };
+      const counts = [tn('tickets.hint.review', review), tn('tickets.hint.waiting', waiting), admin ? '' : t('tickets.hint.adminsOnly')].filter(Boolean).join(' · ');
+      return { k: `${review}|${waiting}|${admin}`, parts: [hintTitle(`🗂️ ${t('tickets.name')}`), aside(counts), ...(admin ? [key('E', t('tickets.hint.look'))] : [])] };
     },
     use: onE(() => {
       if (store.me.admin) showReview();

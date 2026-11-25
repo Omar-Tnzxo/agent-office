@@ -6,6 +6,9 @@
  * from beside the desk.
  */
 import type { Run, ScreenLine, Visitor } from '../../../shared/protocol';
+import { isRtl, lang, t, type TextKey } from '../../i18n';
+import { hasRtl } from '../../i18n/canvas';
+import { toolText } from '../../i18n/server';
 import type { ScreenState } from '../../state/store';
 
 /** Across and down: few enough that the letters stay big on a laptop's screen. */
@@ -17,11 +20,19 @@ const SAY_ROWS = 3;
 /** Colors by kind, as indexes into the terminal's palette (see TERM_THEME), and which are bold. */
 const COLOR: Record<ScreenLine['k'], number> = { say: 15, do: 14, add: 10, del: 9, out: 7, ask: 11, you: 13, err: 9 };
 const BOLD = new Set<ScreenLine['k']>(['do', 'ask']);
-const STATUS: Record<Visitor['status'], { label: string; bg: number }> = {
-  working: { label: 'working', bg: 2 },
-  needs_input: { label: 'waiting on you', bg: 3 },
-  done: { label: 'done', bg: 8 },
+const STATUS: Record<Visitor['status'], { label: TextKey; bg: number }> = {
+  working: { label: 'watch.screen.working', bg: 2 },
+  needs_input: { label: 'watch.screen.waiting', bg: 3 },
+  done: { label: 'watch.screen.done', bg: 8 },
 };
+/** The lines the office wrote about a tool call ("Editing landing.md"), read in the page's language; the others are the session's own. */
+const OFFICE_WORDS = new Set<ScreenLine['k']>(['do', 'ask', 'err']);
+
+/**
+ * A row as the laptop paints it: on an Arabic page, one with Arabic in it takes the whole width, so
+ * it's drawn from the right edge (see paintWords in features/workers/laptop.ts), the way it reads.
+ */
+const rowText = (text: string) => (isRtl() && hasRtl(text) ? text.padEnd(COLS) : text);
 
 /** `text` cut to `n` characters (by code point), with an ellipsis when it was longer. */
 export function fit(text: string, n: number): string {
@@ -63,8 +74,9 @@ export function screenRows(lines: readonly ScreenLine[], room: number): Run[][] 
     const l = lines[i];
     const fg = COLOR[l.k] ?? 7;
     const flags = BOLD.has(l.k) ? 1 : 0;
-    const texts = l.k === 'say' ? wrap(l.t, COLS - 1, Math.min(SAY_ROWS, room - rows.length)) : [fit(l.t, COLS - 1)];
-    rows.unshift(...texts.map((t): Run[] => [[` ${t}`, fg, -1, flags]]));
+    const text = OFFICE_WORDS.has(l.k) ? toolText(l.t) : l.t;
+    const texts = l.k === 'say' ? wrap(text, COLS - 1, Math.min(SAY_ROWS, room - rows.length)) : [fit(text, COLS - 1)];
+    rows.unshift(...texts.map((s): Run[] => [[rowText(` ${s}`), fg, -1, flags]]));
   }
   return rows;
 }
@@ -72,9 +84,13 @@ export function screenRows(lines: readonly ScreenLine[], room: number): Run[][] 
 /** The whole screen for a visitor: its title bar, its steps (the newest at the bottom) and its folder along the foot. */
 export function visitorScreen(v: Visitor, version: number): ScreenState {
   const status = STATUS[v.status];
-  const head = fit(` ${v.title}`, COLS - status.label.length - 2);
-  const bar: Run[] = [[`${head}${' '.repeat(Math.max(1, COLS - [...head].length - status.label.length - 1))}${status.label} `, 0, status.bg, 1]];
-  const lines = v.screen?.length ? v.screen : [{ k: 'do' as const, t: v.status === 'needs_input' ? 'Waiting on you' : (v.activity ?? 'Working…') }];
+  const label = t(status.label);
+  const width = [...label].length;
+  const head = fit(` ${v.title}`, COLS - width - 2);
+  const gap = ' '.repeat(Math.max(1, COLS - [...head].length - width - 1));
+  // Right to left, the bar is mirrored: the state on the left, the name on the right, each in cells of its own.
+  const bar: Run[] = isRtl() ? [[` ${label}`, 0, status.bg, 1], [gap, 0, status.bg, 1], [`${head.slice(1)} `, 0, status.bg, 1]] : [[`${head}${gap}${label} `, 0, status.bg, 1]];
+  const lines = v.screen?.length ? v.screen : [{ k: 'do' as const, t: v.status === 'needs_input' ? t('watch.screen.waitingLine') : (v.activity ?? t('watch.screen.workingLine')) }];
   const body = screenRows(lines, ROWS - 2);
   const foot: Run[] = [[fit(` ${v.folder}${v.branch ? ` (${v.branch})` : ''}`, COLS).padEnd(COLS), 7, 0, 4]];
   // Blank rows between the bar and the steps: a short list sits at the bottom, by the foot.
@@ -88,7 +104,8 @@ let versions = 0;
 
 /** Puts what the office last read of `v` on `laptop`'s screen. */
 export function showOnLaptop(laptop: object, v: Visitor) {
-  const key = JSON.stringify([v.title, v.status, v.activity, v.folder, v.branch, v.screen]);
+  // The language too: a switch paints its words again (visitors/index.ts shows each visitor again on one).
+  const key = JSON.stringify([lang(), v.title, v.status, v.activity, v.folder, v.branch, v.screen]);
   if (shown.get(laptop)?.key === key) return;
   shown.set(laptop, { key, screen: visitorScreen(v, ++versions) });
 }

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { deskPoint, type NavGrid, type Pt } from '../../../shared/nav';
 import type { Handoff } from '../../../shared/protocol';
+import { t } from '../../i18n';
+import { sayText } from '../../i18n/server';
 import type { Worker } from '../../world/character';
 import type { DeskView } from '../../world/types';
 import { stepWalk, walkAlong, type Walk } from '../visitors/walk';
@@ -59,7 +61,7 @@ function sayAbove(model: Worker, text: string, lift: number) {
 
 /** What the taker says back. */
 function reply(h: Handoff): string {
-  return h.kind === 'return' ? 'On it' : h.kind === 'review' ? "I'll take a look" : 'Thanks!';
+  return t(h.kind === 'return' ? 'tickets.reply.return' : h.kind === 'review' ? 'tickets.reply.review' : 'tickets.reply.thanks');
 }
 
 /** A folder flying from one spot to another in a little arc, gone once it's there. */
@@ -162,7 +164,7 @@ export class Errand {
       if (stepWalk(model, this.walk!, dt, this.deps.footstep)) return true;
       this.phase = 'give';
       this.t = 0;
-      sayAbove(model, this.handoff.say, 0.3);
+      sayAbove(model, sayText(this.handoff.say), 0.3);
       return true;
     }
     // Face to face, the folder going across.

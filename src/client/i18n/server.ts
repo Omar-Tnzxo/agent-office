@@ -150,6 +150,11 @@ const WRITTEN: readonly Rule[] = [
   [/^Only admins can change the office’s prompts$/, 'server.adminsPrompts', []],
   [/^Only admins can pick the office’s default worker$/, 'server.adminsDefault', []],
   [/^Only admins can manage accounts$/, 'server.adminsAccounts', []],
+  [/^Only admins can watch a visitor$/, 'server.adminsWatch', []],
+  [/^Only admins can read the tickets$/, 'server.adminsTickets', []],
+  [/^No such ticket$/, 'server.noTicket', []],
+  [/^No such file$/, 'server.noFile', []],
+  [/^Not found$/, 'server.notFound', []],
   [/^The worker limit is a whole number from 1 to (\d+)$/, 'server.limitRange', ['n']],
   [dashed(/^The office is at its limit of (\d+) workers? on this machine <D> send one home before hiring another$/), 'server.atLimit', ['n']],
   [/^The office was started with --max-workers (\d+), so the limit can't go above \1$/, 'server.limitCeiling', ['n']],
@@ -246,6 +251,11 @@ const WRITTEN: readonly Rule[] = [
   [/^🖍️ at the whiteboard$/, 'server.doing.whiteboard', []],
   [/^🖥️ watching (.+)'s screen$/, 'server.doing.screen', ['name']],
   [/^🖼️ hanging a picture$/, 'server.doing.hanging', []],
+  [/^👀 watching (.+)$/s, 'server.doing.watching', ['title']],
+  [/^🗂️ at the review table$/, 'server.doing.reviewTable', []],
+  [/^🗂️ reading the request (.+)$/, 'server.doing.readingRequest', ['id']],
+  [/^🗂️ reading the ticket (.+)$/, 'server.doing.readingTicket', ['id']],
+  [/^🗂️ reading (.+)$/, 'server.doing.readingFile', ['file']],
 ];
 
 /**
@@ -261,13 +271,64 @@ const LONGEST = 400;
 
 /** `text` from the server, in the page's language when a rule knows it. */
 export function serverText(text: string): string {
+  return byRules(RULES, text);
+}
+
+/** The rules, for the tests: each key exists and has the holes its rule fills. */
+export const SERVER_RULES = RULES;
+
+/**
+ * What the office writes about a visitor's tool calls (server/visitors/feed.ts: "Editing landing.md",
+ * "Waiting on you: ..."), on its laptop and in its Watch window. Kept apart from the toasts' rules so
+ * a command or a reply that happens to read like one is never touched there: only these lines come
+ * through. What a hole holds (a path, a pattern, a question) is the session's own, carried over.
+ */
+export const TOOL_RULES: readonly Rule[] = [
+  [/^Waiting on you: its plan is ready$/, 'watch.tool.plan', []],
+  [/^Waiting on you: (.+)$/s, 'watch.tool.asks', ['question']],
+  [/^Waiting on you$/, 'watch.tool.waiting', []],
+  [/^Editing (.+)$/, 'watch.tool.editing', ['file']],
+  [/^Writing (.+)$/, 'watch.tool.writing', ['file']],
+  [/^Reading (.+)$/, 'watch.tool.reading', ['file']],
+  [/^Searching the web: (.+)$/s, 'watch.tool.web', ['what']],
+  [/^Searching: (.+) in (\S+)$/s, 'watch.tool.searchingIn', ['what', 'path']],
+  [/^Searching: (.+)$/s, 'watch.tool.searching', ['what']],
+  [/^Finding (.+)$/, 'watch.tool.finding', ['what']],
+  [/^Fetching (.+)$/, 'watch.tool.fetching', ['url']],
+  [/^Subagent: (.+)$/s, 'watch.tool.subagent', ['what']],
+  [/^Updating its to-do list$/, 'watch.tool.todos', []],
+  [/^Skill: (.+)$/, 'watch.tool.skill', ['what']],
+  [/^Loading tools$/, 'watch.tool.loading', []],
+  [/^Stopped by the person at the keyboard$/, 'watch.tool.stoppedBy', []],
+  [/^Stopped$/, 'watch.tool.stopped', []],
+  [/^A background task finished$/, 'watch.tool.background', []],
+];
+
+/**
+ * The few words a visitor says handing a ticket over (server/tickets/parse.ts, sayOf): "Back for
+ * changes", "Copy for review". The stage's name in them is the repository's, carried over.
+ */
+export const SAY_RULES: readonly Rule[] = [
+  [/^Back for changes$/, 'tickets.say.back', []],
+  [/^Approved ✔$/, 'tickets.say.approved', []],
+  [/^Ready for review$/, 'tickets.say.ready', []],
+  [/^Over to you$/, 'tickets.say.over', []],
+  [/^(.+) for review$/, 'tickets.say.forReview', ['stage']],
+  [/^(.+) done$/, 'tickets.say.done', ['stage']],
+];
+
+/** `text` said again by the first of `rules` that matches it, with its holes carried over; as it came in English, past LONGEST, or when none does. */
+function byRules(rules: readonly Rule[], text: string): string {
   if (lang() === 'en' || text.length > LONGEST) return text;
-  for (const [pattern, key, holes] of RULES) {
+  for (const [pattern, key, holes] of rules) {
     const m = pattern.exec(text);
     if (m) return t(key, Object.fromEntries(holes.map((name, i) => [name, m[i + 1] ?? ''])));
   }
   return text;
 }
 
-/** The rules, for the tests: each key exists and has the holes its rule fills. */
-export const SERVER_RULES = RULES;
+/** A line the office wrote about a visitor's tool call, in the page's language when a rule knows it. */
+export const toolText = (text: string): string => byRules(TOOL_RULES, text);
+
+/** What a visitor says handing a ticket over, in the page's language when a rule knows it. */
+export const sayText = (text: string): string => byRules(SAY_RULES, text);

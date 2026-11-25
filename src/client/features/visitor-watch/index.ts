@@ -10,6 +10,7 @@ import type { Visitor } from '../../../shared/protocol';
 import type { Ctx } from '../../core/context';
 import { aside, key } from '../../core/hint';
 import type { Parts } from '../../core/parts';
+import { onLang, t } from '../../i18n';
 import { store } from '../../state';
 import { toast } from '../../ui/dom';
 import type { Interactable } from '../../world/types';
@@ -58,7 +59,7 @@ export function installVisitorWatch(ctx: Ctx, parts: VisitorWatchParts) {
   function watch(id: string) {
     if (!canWatch()) return;
     const v = visitor(id);
-    if (!v) return void toast('That visitor has left the office', 'warn');
+    if (!v) return void toast(t('watch.gone'), 'warn');
     if (open?.id === id) return;
     open?.view.close();
     const view = openWatchWindow(v, () => {
@@ -90,6 +91,15 @@ export function installVisitorWatch(ctx: Ctx, parts: VisitorWatchParts) {
   });
   // Off to another floor: its window doesn't come along (the office stops sending it, see visitorHooks).
   ctx.messages.on('floor.enter', () => open?.view.close());
+  // A switch of language: the window's own words now, and what's in it again from the office (its
+  // labels were drawn in the other language), the way it comes when the window opens.
+  onLang(() => {
+    if (!open) return;
+    open.view.relabel();
+    net.send({ t: 'visitor.unwatch', id: open.id });
+    open.got = false;
+    ask(open.id);
+  });
   // Back after the connection dropped: the office forgot who you watched, so ask again.
   ctx.messages.on('welcome', () => {
     if (!open) return;
@@ -115,7 +125,7 @@ export function installVisitorWatch(ctx: Ctx, parts: VisitorWatchParts) {
       const v = id ? visitor(id) : undefined;
       if (!v) return { k: '', parts: [] };
       const admin = canWatch();
-      return { k: `|v:${v.id}:${admin}`, parts: [aside(`👋 ${v.title} sits here`), admin ? key('I', 'Watch') : ''].filter((p): p is HTMLElement => !!p) };
+      return { k: `|v:${v.id}:${admin}`, parts: [aside(t('watch.sitsHere', { title: v.title })), admin ? key('I', t('watch.key')) : ''].filter((p): p is HTMLElement => !!p) };
     },
   };
 }

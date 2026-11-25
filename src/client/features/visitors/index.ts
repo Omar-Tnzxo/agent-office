@@ -437,7 +437,7 @@ export function installVisitors(ctx: Ctx, parts: Pick<Parts, 'visitorWatch'>) {
       const subs = v.subagentCount ? ` · ${tn('desks.visitor.subagents', v.subagentCount)}` : '';
       // Watching is for admins (see visitor-watch).
       const admin = canWatch();
-      return { k: `visitor|${v.id}|${v.status}|${v.subagentCount}|${admin}`, parts: [hintTitle(`👋 ${v.title}`), aside(`${APP[v.app]} · ${ltrText(v.folder)}${subs}`), admin ? key('I', 'Watch') : ''] };
+      return { k: `visitor|${v.id}|${v.status}|${v.subagentCount}|${admin}`, parts: [hintTitle(`👋 ${v.title}`), aside(`${APP[v.app]} · ${ltrText(v.folder)}${subs}`), admin ? key('I', t('watch.key')) : ''] };
     },
     use: (it, k) => {
       if (k === 'E' && it.seatId && canWatch()) parts.visitorWatch.watch(it.seatId);

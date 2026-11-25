@@ -9,6 +9,7 @@
 import '../../ui/markdown.css';
 import { Marked } from 'marked';
 import DOMPurify from 'dompurify';
+import { t } from '../../i18n';
 import { h } from '../../ui/dom';
 
 const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -19,7 +20,7 @@ const md = new Marked({
   renderer: {
     // A picture is never fetched: its alt text and address, as text.
     image({ href, text }) {
-      return `<span class="vw-img">[image${text ? `: ${escape(text)}` : ''}${href ? ` ${escape(href)}` : ''}]</span>`;
+      return `<span class="vw-img">[${escape(t('watch.image'))}${text ? `: ${escape(text)}` : ''}${href ? ` ${escape(href)}` : ''}]</span>`;
     },
     // Raw HTML in the text is shown as text, not put on the page.
     html({ text }) {

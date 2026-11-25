@@ -361,7 +361,7 @@ export function installWorkerActions(ctx: Ctx, core: CoreState, parts: WorkerAct
       return {
         k: `${paused}|${full}|${m.workers}|${m.limit}|${!!m.pressure}|${sign}${visitor.k}`,
         parts: [
-          h('span.title', {}, visitor.k ? `${deskName} · no worker` : t('desks.hint.empty', { desk: deskName })),
+          h('span.title', {}, t(visitor.k ? 'watch.deskNoWorker' : 'desks.hint.empty', { desk: deskName })),
           ...visitor.parts,
           ...(full
             ? [officeFullNote(m)]

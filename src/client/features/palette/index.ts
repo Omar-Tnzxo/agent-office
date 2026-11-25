@@ -13,7 +13,7 @@ import { isTyping } from '../../player';
 import { store } from '../../state';
 import { openAccounts } from '../../ui/accounts';
 import { openBoard } from '../../ui/boards';
-import { t, type TextKey } from '../../i18n';
+import { ltrText, t, type TextKey } from '../../i18n';
 import { STATUS_LABEL, toast } from '../../ui/dom';
 import { paletteOpen, togglePalette, type PaletteEntry } from '../../ui/palette';
 import { openIssue, openPull } from '../../ui/pull';
@@ -89,7 +89,7 @@ export function installPalette(ctx: Ctx, parts: PaletteParts) {
 
     // Claude Code sessions the office didn't start: Enter watches one over its shoulder (admins only).
     for (const v of store.me.admin ? store.visitors.visitors : []) {
-      out.push({ icon: '👀', kind: 'Visitor', title: v.title, detail: ['Watch', v.folder, STATUS_LABEL[v.status]].join(' · '), keywords: [v.branch, 'visitor', 'watch'], open: () => parts.visitorWatch.watch(v.id) });
+      out.push({ icon: '👀', kind: t('watch.palette.kind'), title: v.title, detail: [t('watch.key'), ltrText(v.folder), STATUS_LABEL[v.status]].join(' · '), keywords: [v.branch, 'visitor', 'watch'], open: () => parts.visitorWatch.watch(v.id) });
     }
 
     const free = nearestFreeDesk();
