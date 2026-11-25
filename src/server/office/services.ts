@@ -170,9 +170,9 @@ export function createLateServices(ctx: Ctx): LateServices {
       floors: () => [...floors.values()].map((f) => ({ id: f.id, dir: f.dir, repo: f.def.repo })),
       workerSessions: () => new Set([...floors.values()].flatMap((f) => f.workers.list().map((w) => w.sessionId).filter((id): id is string => !!id))),
       watched: () => clients.size > 0,
-      send: (id, state) => {
+      send: (id, state, caughtUp) => {
         const floor = floors.get(id);
-        if (floor) ctx.toFloor(floor, { t: 'visitors', state });
+        if (floor) ctx.toFloor(floor, { t: 'visitors', state, ...(caughtUp ? { caughtUp } : {}) });
       },
     },
   );

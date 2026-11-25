@@ -12,6 +12,8 @@ import { SessionScanner, type Sighting } from './scan.js';
 
 /** How often the projects folder is looked over, while anyone is in the office. */
 const EVERY_MS = 4000;
+/** A look this long after the last one comes after nobody was looking: what it finds was there already. */
+const CAUGHT_UP_MS = 3 * EVERY_MS;
 /** A floor shows at most this many visitors. */
 export const MAX_VISITORS = 8;
 /** A folder's git origin is asked again after this long. */
@@ -54,8 +56,11 @@ export interface VisitorsDeps {
   workerSessions(): Set<string>;
   /** Whether anyone is in the office to see them: nobody looks while nobody's there. */
   watched(): boolean;
-  /** A floor's visitors changed. */
-  send(floor: string, state: VisitorsState): void;
+  /**
+   * A floor's visitors changed. `caughtUp`: the office hadn't looked for a while (nobody was in it),
+   * so none of them has only just turned up or started work: they were as they are already.
+   */
+  send(floor: string, state: VisitorsState, caughtUp: boolean): void;
 }
 
 /** Whether `child` is `dir` or inside it. */
@@ -142,6 +147,8 @@ export class Visitors {
   private byFloor = new Map<string, Visitor[]>();
   private sent = new Map<string, string>();
   private busy = false;
+  /** When the projects folder was last looked over. */
+  private lookedAt = 0;
   /** Every session the office's workers have had: one a worker left behind (a /clear) is no visitor either. */
   private workers = new Set<string>();
 
@@ -187,6 +194,9 @@ export class Visitors {
   async look(now = Date.now()): Promise<void> {
     if (this.busy || this.opts.off) return;
     this.busy = true;
+    // Nobody was in the office to look for (see start), or it has only just opened.
+    const caughtUp = now - this.lookedAt > CAUGHT_UP_MS;
+    this.lookedAt = now;
     try {
       for (const id of this.deps.workerSessions()) this.workers.add(id);
       const floors = this.deps.floors();
@@ -211,7 +221,7 @@ export class Visitors {
         const key = JSON.stringify(state);
         if (this.sent.get(f.id) === key) continue;
         this.sent.set(f.id, key);
-        this.deps.send(f.id, state);
+        this.deps.send(f.id, state, caughtUp);
       }
     } finally {
       this.busy = false;

@@ -43,4 +43,8 @@ export interface VisitorsState {
   off?: boolean;
 }
 
-export type VisitorsServerMsg = { t: 'visitors'; state: VisitorsState };
+/**
+ * A floor's visitors, when they change. `caughtUp`: the office hadn't looked for a while (nobody was in
+ * it), so whoever is new or at work on this list was so already: nobody walks in, they're where they sit.
+ */
+export type VisitorsServerMsg = { t: 'visitors'; state: VisitorsState; caughtUp?: true };

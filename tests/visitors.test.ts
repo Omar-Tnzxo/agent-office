@@ -167,6 +167,32 @@ test("the office tells each floor its visitors when they change, never counts it
   assert.deepEqual(off.state('f1'), { visitors: [], off: true });
 });
 
+test("the office's first look after nobody was in it says so: whoever it finds was at work already", async (t) => {
+  const { root, put } = projects(t);
+  const now = Date.now();
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'ao-floor-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const session = (n: number, at: number) => {
+    put(`p/${UUID(n)}.jsonl`, lines(user('visit', { entrypoint: 'cli', cwd: dir }), assistant([toolUse('Bash', { command: 'ls' })], 'tool_use')), 0);
+    utimesSync(path.join(root, `p/${UUID(n)}.jsonl`), at / 1000, at / 1000);
+  };
+  const sent: [number, boolean][] = [];
+  const visitors = new Visitors({ root }, { floors: () => [{ id: 'f1', dir }], workerSessions: () => new Set(), watched: () => true, send: (_floor, state, caughtUp) => void sent.push([state.visitors.length, caughtUp]) });
+  session(1, now);
+  await visitors.look(now);
+  // One that turns up while the office is looking has only just come.
+  session(2, now + 4000);
+  await visitors.look(now + 4000);
+  // Nobody in the office for a minute, so nobody looked: the one found after it was there already.
+  session(3, now + 64_000);
+  await visitors.look(now + 64_000);
+  assert.deepEqual(sent, [
+    [1, true],
+    [2, false],
+    [3, true],
+  ]);
+});
+
 test('a session that is told who it is in its first words goes by that role', () => {
   assert.equal(roleOf('You are the Copywriter (`copywriter`) of Acme Agency. Work in the repository at /srv/acme.'), 'Copywriter');
   assert.equal(roleOf('You are the Managing Director of Acme Agency.'), 'Managing Director');
