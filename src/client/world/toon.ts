@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { onLang, t, type TextKey } from '../i18n';
+import { dirFor, FONT } from '../i18n/canvas';
 
 let gradient: THREE.DataTexture | null = null;
 
@@ -73,13 +75,16 @@ function textTexture(text: string, opts: TextOpts) {
   const size = opts.size ?? 48;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
-  const font = `800 ${size}px Nunito, ui-rounded, system-ui, sans-serif`;
+  const font = `800 ${size}px ${FONT}`;
   ctx.font = font;
+  dirFor(ctx, text);
   const w = Math.ceil(ctx.measureText(text).width) + size;
   const h = Math.ceil(size * 1.6);
   canvas.width = w;
   canvas.height = h;
+  // Resizing the canvas resets its state, the direction with the font.
   ctx.font = font;
+  dirFor(ctx, text);
   if (opts.bg) {
     ctx.fillStyle = opts.bg;
     const r = h / 2;
@@ -117,6 +122,51 @@ export function textPlane(text: string, opts: TextOpts = {}): THREE.Mesh<THREE.P
   return new THREE.Mesh(new THREE.PlaneGeometry(w * TEXT_SCALE, h * TEXT_SCALE), mat);
 }
 
+/** A textPlane: a flat sign. */
+export type Plane = ReturnType<typeof textPlane>;
+interface Phrased {
+  words: () => string;
+  opts: TextOpts;
+  fit?: (sign: Plane) => void;
+}
+/**
+ * The signs that say a phrase (see phrasePlane), held weakly: a world that's taken down and built
+ * again (a map of your own, edited) lets its old signs go instead of keeping them here for good.
+ */
+const phrased = new Set<WeakRef<Plane>>();
+onLang(() => {
+  for (const ref of phrased) {
+    const sign = ref.deref();
+    if (!sign) {
+      phrased.delete(ref);
+      continue;
+    }
+    // Not in a scene: a world taken down (its textures disposed) that the collector hasn't freed yet.
+    if (!sign.parent) continue;
+    const p = sign.userData.phrased as Phrased;
+    const { tex, w, h } = textTexture(p.words(), p.opts);
+    sign.material.map?.dispose();
+    sign.material.map = tex;
+    sign.geometry.dispose();
+    sign.geometry = new THREE.PlaneGeometry(w * TEXT_SCALE, h * TEXT_SCALE);
+    p.fit?.(sign);
+  }
+});
+
+/**
+ * A textPlane whose words are a phrase in the viewer's language (its key, or what reads it with `t`
+ * when it has holes to fill), painted again in place when the language switches. Its size changes
+ * with its words, so whatever is sized to fit them goes in `fit`, which runs now and after each repaint.
+ */
+export function phrasePlane(phrase: TextKey | (() => string), opts: TextOpts = {}, fit?: (sign: Plane) => void): Plane {
+  const words = typeof phrase === 'string' ? () => t(phrase) : phrase;
+  const sign = textPlane(words(), opts);
+  sign.userData.phrased = { words, opts, fit } satisfies Phrased;
+  fit?.(sign);
+  phrased.add(new WeakRef(sign));
+  return sign;
+}
+
 export interface CardOpts {
   /** A small pill across the top edge, e.g. "⌨️ WORKING". */
   chip?: { text: string; bg: string; color: string };
@@ -132,7 +182,6 @@ export interface CardOpts {
 /** Cards are drawn at twice the pixels of other labels so their smaller text stays crisp up close. */
 const CARD_RES = 2;
 const INK = '#2b2d42';
-const FONT = 'Nunito, ui-rounded, system-ui, sans-serif';
 
 /**
  * A speech-bubble card: status pill, bold title (up to 2 lines) and a smaller body (up to 3), with a
@@ -152,13 +201,18 @@ export function cardSprite(o: CardOpts): THREE.Sprite {
   const bodyLH = 29 * R;
 
   const ctx = document.createElement('canvas').getContext('2d')!;
+  // Each part reads in its own direction (an Arabic title over an English body), set for the whole
+  // text before it's wrapped so every line of it measures and draws the same way.
   ctx.font = titleFont;
+  dirFor(ctx, o.title);
   const title = wrap(ctx, o.title, maxW, 2);
   const titleW = Math.max(...title.map((l) => ctx.measureText(l).width));
   ctx.font = bodyFont;
+  dirFor(ctx, o.body ?? '');
   const body = o.body ? wrap(ctx, o.body, maxW, 3) : [];
   const bodyW = body.length ? Math.max(...body.map((l) => ctx.measureText(l).width)) : 0;
   ctx.font = chipFont;
+  dirFor(ctx, o.chip?.text ?? '');
   const chipW = o.chip ? ctx.measureText(o.chip.text).width + 24 * R : 0;
 
   const w = Math.ceil(Math.max(titleW, bodyW, chipW + 2 * pad) + 2 * pad);
@@ -203,13 +257,16 @@ export function cardSprite(o: CardOpts): THREE.Sprite {
     ctx.lineWidth = 4 * R;
     ctx.stroke();
     ctx.font = chipFont;
+    dirFor(ctx, o.chip.text);
     ctx.fillStyle = o.chip.color;
     ctx.fillText(o.chip.text, cx, lw / 2 + chipH / 2 + R);
   }
   ctx.font = titleFont;
+  dirFor(ctx, o.title);
   ctx.fillStyle = INK;
   title.forEach((l, i) => ctx.fillText(l, cx, titleY + (i + 0.5) * titleLH));
   ctx.font = bodyFont;
+  dirFor(ctx, o.body ?? '');
   ctx.fillStyle = '#5c5f77';
   body.forEach((l, i) => ctx.fillText(l, cx, bodyY + (i + 0.5) * bodyLH));
 

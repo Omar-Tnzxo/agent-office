@@ -3,6 +3,7 @@ import { EMOTES, EMOTE_BY_ID, EmoteBucket, type EmoteId } from '../../../shared/
 import type { Ctx } from '../../core/context';
 import { $, h, toast } from '../../ui/dom';
 import { EmoteWheel } from './ui';
+import { t } from '../../i18n';
 import type { Person } from '../../world/character';
 
 export interface EmotesDeps {
@@ -20,7 +21,7 @@ export function installEmotes(ctx: Ctx, deps: EmotesDeps) {
     if (!emoteLimit.take(now)) {
       if (now - emoteWarnedAt > 3000) {
         emoteWarnedAt = now;
-        toast('Easy there, one emote at a time', 'warn');
+        toast(t('toys.emote.easy'), 'warn');
       }
       return;
     }

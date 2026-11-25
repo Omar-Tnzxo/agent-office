@@ -1,14 +1,20 @@
-import { ROOF, ROOF_NAME } from '../../shared/rooftop';
+import { ROOF } from '../../shared/rooftop';
 import { store } from '../state';
 import type { Voice } from '../voice';
 import { $, h } from './dom';
 import { whereabouts } from './whereabouts';
+import { onLang, t } from '../i18n';
 
 /** What the people list last showed, so it's only drawn again when something in it changed. */
 let peopleKey = '';
 
+/** What it was last drawn with, so a switch of language can draw it again. */
+let last: Parameters<typeof renderPeople> | null = null;
+onLang(() => last && renderPeople(last[0], last[1], last[2], true));
+
 /** The people list in the sidebar. Click yourself to change your character, or anyone else to walk over to them. */
 export function renderPeople(voice: Voice, onEditProfile: () => void, onWalkTo: (id: string) => void, force = true) {
+  last = [voice, onEditProfile, onWalkTo, force];
   const peers = [...store.peers.values()].sort((a, b) => (a.id === store.you ? -1 : b.id === store.you ? 1 : a.name.localeCompare(b.name)));
   // What each of them is up to changes as they walk about (onto the balcony, up the stairs).
   const doing = peers.map((p) => (p.id === store.you ? undefined : whereabouts(p, store.carOf(p.id))));
@@ -23,18 +29,18 @@ export function renderPeople(voice: Voice, onEditProfile: () => void, onWalkTo: 
     const sub = doing[i];
     const li = h(
       'li',
-      { 'data-peer': p.id, class: p.lite && !you ? undefined : 'walk', title: you ? 'Change your character' : p.lite ? `${p.name} is on the 2D view` : `${store.onMyFloor(p) ? 'Walk over to' : 'Take the elevator to'} ${p.name}${sub ? ` (${sub})` : ''}` },
+      { 'data-peer': p.id, class: p.lite && !you ? undefined : 'walk', title: you ? t('panels.ppl.change') : p.lite ? t('panels.ppl.lite', { name: p.name }) : `${t(store.onMyFloor(p) ? 'panels.ppl.walk' : 'panels.ppl.elevator', { name: p.name })}${sub ? ` (${sub})` : ''}` },
       h('span.dot', { style: `background:${p.color}` }),
       h('span.name', {}, p.name, sub ? h('span.sub', {}, sub) : null),
-      p.account ? h('span.acct', { title: `Signed in with ${you ? 'your' : 'their'} own account` }, '✓') : null,
-      you ? h('span.you', {}, '(you)') : null,
+      p.account ? h('span.acct', { title: t(you ? 'panels.ppl.acct.you' : 'panels.ppl.acct.them') }, '✓') : null,
+      you ? h('span.you', {}, t('panels.ppl.you')) : null,
       // Somewhere else in the building: which floor.
       !you && !store.onMyFloor(p)
         ? p.floor === ROOF
-          ? h('span.where', { title: 'Up on the roof' }, `🍸 ${ROOF_NAME}`)
-          : h('span.where', { title: 'On another floor' }, `🛗 ${store.floors.find((f) => f.id === p.floor)?.name ?? 'lobby'}`)
+          ? h('span.where', { title: t('panels.ppl.roof') }, `🍸 ${t('panels.elev.roof')}`)
+          : h('span.where', { title: t('panels.ppl.otherFloor') }, `🛗 ${store.floors.find((f) => f.id === p.floor)?.name ?? t('panels.ppl.lobby')}`)
         : null,
-      p.sharing ? h('span', { title: 'Sharing screen' }, '🖥️') : null,
+      p.sharing ? h('span', { title: t('panels.ppl.sharing') }, '🖥️') : null,
       h('span.mic', {}, mic),
     );
     li.addEventListener('click', () => (you ? onEditProfile() : onWalkTo(p.id)));

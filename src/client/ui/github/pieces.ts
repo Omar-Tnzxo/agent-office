@@ -1,6 +1,8 @@
 import type { GhComment } from '../../../shared/protocol';
 import { AVATAR_COLORS } from '../../state';
 import { h, timeAgo } from '../dom';
+import { t, type TextKey } from '../../i18n';
+import { serverText } from '../../i18n/server';
 import { markdown } from '../markdown';
 
 // ---- Small pieces ---------------------------------------------------------------------------------
@@ -16,12 +18,15 @@ export function when(iso: string, url?: string) {
   return url ? h('a.when', { href: url, target: '_blank', rel: 'noopener noreferrer', title }, timeAgo(iso)) : h('span.when', { title }, timeAgo(iso));
 }
 
-export const REVIEW_BADGE: Record<string, [string, string]> = {
-  APPROVED: ['✅ approved', 'ok'],
-  CHANGES_REQUESTED: ['🛠 requested changes', 'bad'],
-  COMMENTED: ['💬 reviewed', ''],
-  DISMISSED: ['review dismissed', 'muted'],
-};
+/** A review's badge, its words read in the language now. */
+const badge = (key: TextKey, cls: string): PropertyDescriptor => ({ get: (): [string, string] => [t(key), cls], enumerable: true });
+
+export const REVIEW_BADGE: Record<string, [string, string]> = Object.defineProperties({} as Record<string, [string, string]>, {
+  APPROVED: badge('github.review.approved', 'ok'),
+  CHANGES_REQUESTED: badge('github.review.changes', 'bad'),
+  COMMENTED: badge('github.review.commented', ''),
+  DISMISSED: badge('github.review.dismissed', 'muted'),
+});
 
 export function commentCard(c: GhComment, itemUrl: string, verb: string, badge?: [string, string]) {
   return h(
@@ -42,11 +47,11 @@ export function spinnerRow(text: string) {
 }
 
 export function errorBox(text: string, retry?: () => void) {
-  return h('div.gh-error', {}, `Couldn't load from GitHub: ${text}`, retry ? h('button.btn', { type: 'button', onclick: retry }, 'Try again') : null);
+  return h('div.gh-error', {}, t('github.loadError', { error: serverText(text) }), retry ? h('button.btn', { type: 'button', onclick: retry }, t('common.retry')) : null);
 }
 
 export function stateOf(it: { state: string; isDraft?: boolean }): [string, string] {
-  if (it.state === 'MERGED') return ['merged', 'merged'];
-  if (it.state === 'CLOSED') return ['closed', 'offline'];
-  return it.isDraft ? ['draft', 'idle'] : ['open', 'working'];
+  if (it.state === 'MERGED') return [t('github.state.merged'), 'merged'];
+  if (it.state === 'CLOSED') return [t('github.state.closed'), 'offline'];
+  return it.isDraft ? [t('github.state.draft'), 'idle'] : [t('github.state.open'), 'working'];
 }

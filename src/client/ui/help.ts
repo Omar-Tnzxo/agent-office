@@ -1,48 +1,60 @@
 // The rows of the controls help (openHelp in hud.ts), in the order it shows them: a key or an emoji, and
-// what it does. A new control is a new row here.
+// what it does. A new control is a new row here, with its words in i18n/strings/panels-help.ts.
 
+import { t, type TextKey } from '../i18n';
 import { IS_MAC } from './termkeys';
 
+/**
+ * A row whose words are read in the language now each time: `key` is a key cap or emoji as written,
+ * or a phrase key when the cap is a word ("Mouse").
+ */
+function row(key: string | { word: TextKey }, text: TextKey): readonly [string, string] {
+  const r = ['', ''] as [string, string];
+  Object.defineProperty(r, 0, { get: () => (typeof key === 'string' ? key : t(key.word)), enumerable: true });
+  Object.defineProperty(r, 1, { get: () => t(text), enumerable: true });
+  return r;
+}
+
 export const HELP_ROWS: readonly (readonly [string, string])[] = [
-  ['W A S D', 'Walk (hold Shift to run)'],
-  ['Space', 'Jump'],
-  ['☕', 'Press E at the coffee machine in the kitchen for a minute of quicker walking and higher jumps. Three cups in a row gives you the jitters'],
-  ['Mouse', 'Look around in first person (click to capture the mouse, Esc to free it)'],
-  ['Click / E', "Use what you look at: hire a worker, open its terminal, read a board, call a meeting in the meeting room, watch the TV, put a song on the jukebox, tee off from the balcony, sit on a couch, a beanbag, a chair or the balcony bench (walk off to get up)"],
-  ['👥', 'Click someone under "In the office" to walk over to them (on another floor, you ride the elevator first). The line under their name says what they have open or where they are'],
-  ['🛗', 'Every project is a floor: step into the elevator on the north wall and press E (or click the project name, top left) to go to another one or add a project. It goes down to the garage too, and back up from there'],
-  ['🤖', 'An agent stands by the issues board, the PR board and the task queue. Press E at one and type what you want: it runs as an agent that knows that board. O there opens its terminal; Hide, ✕ or Esc closes the terminal without sending it home; X sends it home'],
-  ['📝', 'The whiteboard on wheels between the desks and the lounge: press E to draw on it with everyone on your floor, live. What you draw stays up on the board'],
-  ['🕹️', 'The arcade cabinet in the lounge plays BLOCKFALL: arrows (or WASD) move and turn, Space drops, C holds, P pauses. Everyone on the floor sees your game on it, and E there watches whoever is playing. One of your workers needing input pauses it'],
+  row('W A S D', 'panels.help.walk'),
+  row('Space', 'panels.help.jump'),
+  row('☕', 'panels.help.coffee'),
+  row({ word: 'panels.help.key.mouse' }, 'panels.help.mouse'),
+  row({ word: 'panels.help.key.click' }, 'panels.help.use'),
+  row('👥', 'panels.help.people'),
+  row('🛗', 'panels.help.elevator'),
+  row('🤖', 'panels.help.agents'),
+  row('📝', 'panels.help.whiteboard'),
+  row('🕹️', 'panels.help.arcade'),
   ['🗂️', "On a floor whose repository keeps its work as tickets (work/<id>/ticket.md), visitors carry a folder to whoever takes their work next, and each one's desk has an in-tray of what waits on it. Press E at the review table by the meeting room to read what's in review and what waits on you (read-only)"],
-  ['🎉', 'Whenever a pull request merges, the gong next to the PR board rings, confetti rains down all over the floor and every worker gets up on its desk for a quick dance. Walk up to the gong and press E to bang it yourself'],
-  ['N', "Next worker that needs you: go to whoever needs input (they have a red beacon over their desk, and a banner up top says what each is asking), then whoever is done and nobody's looked at, longest-waiting first, and again for the next one. Arrows at the edge of the screen point to the ones out of sight"],
-  ['🏀', 'The hoop on the west wall, by the exit door: E at the ball picks it up. Hold E (or the mouse, in first person) and let go when the meter is in the green to sink it. In first person it goes where you look. Q drops it. Everyone on your floor sees your shot'],
-  ['🏎️', "The Lambos and Ferraris in the garage: E at one gets you behind the wheel, or beside whoever's driving it. W is the gas, S brakes and reverses, A and D steer, Space brakes, H honks and E gets you out. Everyone on your floor sees you drive by"],
-  ['🍸', 'The elevator goes up to the rooftop bar: a DJ playing drum and bass under the lights, and the city all around. Press E at the bar for a drink (it goes to your head for a bit) and at the DJ booth for the air horn'],
-  ['🎯', 'Up on the roof, in the corner past the DJ: a dart board and an axe-throwing lane. E at either steps up to the line. The mouse (or the arrow keys) aims, and your hand wanders more after a few drinks. Hold Space (or the mouse button) and let go in the green: three darts a visit, five axes a round, chalked up for everyone up there. E steps back'],
-  ['Drag / wheel', 'Orbit and zoom the camera in third person'],
-  ['P', 'Prompt: give a task to a new or existing worker at the desk you face'],
-  ['C', 'Changes: what the worker at the desk you face changed — files and diff, commit, discard, open a PR'],
-  ['B', 'Open a shared shell (dev servers, git, tests) at an empty desk'],
-  ['R', 'Resume a sleeping worker'],
-  ['X', 'Send a worker home (frees the desk)'],
-  ['L', 'Hang a big sign over the desk you face ("Operations", "Code cleanup"), or change or take down the one there'],
-  ['🚧', 'Room to grow: E at the sign on the north wall past the gong knocks through into a back office with 2 more desks, and again for 2 more. The same sign walls a row back up'],
-  ['F', 'Hang a picture from the web on a wall. Look at a picture and press E to move, edit or take it down'],
-  ['Q', 'Put back the issue card in your hands (E at a note on the issues board, or ✋ Pick it up in an issue; then E at an empty desk, a worker or the queue board), or drop the basketball'],
-  ['🐶', 'Walk up to the office dog and press E to pet it. When a worker needs input, it runs to that desk and barks. Name it in ⚙️ Settings'],
-  ['O', 'Open a pull request for a worker on its own branch, or see the one it has'],
+  row('🎉', 'panels.help.gong'),
+  row('N', 'panels.help.next'),
+  row('🏀', 'panels.help.hoop'),
+  row('🏎️', 'panels.help.cars'),
+  row('🍸', 'panels.help.roof'),
+  row('🎯', 'panels.help.darts'),
+  row({ word: 'panels.help.key.drag' }, 'panels.help.orbit'),
+  row('P', 'panels.help.prompt'),
+  row('C', 'panels.help.changes'),
+  row('B', 'panels.help.shell'),
+  row('R', 'panels.help.resume'),
+  row('X', 'panels.help.home'),
+  row('L', 'panels.help.sign'),
+  row('🚧', 'panels.help.grow'),
+  row('F', 'panels.help.picture'),
+  row('Q', 'panels.help.putBack'),
+  row('🐶', 'panels.help.dog'),
+  row('O', 'panels.help.pr'),
   ['I', "Watch a visitor (a Claude Code session the office didn't start: the Claude app, a terminal) over its shoulder: its prompts, what it writes, every tool call with its diff or output, and a tab per subagent, live. At a visitor, at the desk one sits at, or E on one standing. Admins only, and only a visitor on your floor. Its laptop shows its latest steps, for everyone. Only to look at"],
-  ['T', 'Chat'],
-  ['G / 1–6', 'Emote: hold G, point at one and let go (or tap G and click one), or press 1–6: wave, thumbs up, clap, dance, point, facepalm. Everyone on your floor sees it'],
-  ['/', 'Search the chat and every terminal on your floor, back to before the office last restarted'],
-  [IS_MAC ? '⌘K' : 'Ctrl+K', 'Command palette: type a few letters to find a worker, issue, PR, service, board, teammate or action. Enter opens it, Shift+Enter walks you over to it first'],
-  ['V', 'Join voice. In voice, hold V to talk (push to talk): you’re muted once you let go. Leave voice from the ☰ menu'],
-  ['M', 'Mute or unmute your mic in voice. ⚙️ Settings can have you join muted, for push to talk'],
-  ['Ctrl+Space', 'Dictate: in a worker’s terminal or a prompt box, hold Ctrl+Space (or the 🎤) and talk, and what you said is typed in when you let go, for you to read over and send. A quick tap leaves it listening until you tap again. The browser does the listening (Chrome, Edge and Safari can), so there’s nothing to install'],
-  ['Tab', 'The ☰ menu, top right: every window, and what shows on screen. Pin what you use most to the top bar'],
-  ['Esc', 'Close any window and get back to looking around'],
-  ['Ctrl + [', 'Send Esc to a terminal instead, to close a menu like Claude’s /skills or interrupt Claude. ⎋ Esc in the terminal’s header does the same'],
-  ['⚙️', 'Settings (in the ☰ menu): switch between first and third person'],
+  row('T', 'panels.help.chat'),
+  row('G / 1-6', 'panels.help.emote'),
+  row('/', 'panels.help.search'),
+  row(IS_MAC ? '⌘K' : 'Ctrl+K', 'panels.help.palette'),
+  row('V', 'panels.help.voice'),
+  row('M', 'panels.help.mute'),
+  row('Ctrl+Space', 'panels.help.dictate'),
+  row('Tab', 'panels.help.tab'),
+  row('Esc', 'panels.help.esc'),
+  row('Ctrl + [', 'panels.help.ctrlEsc'),
+  row('⚙️', 'panels.help.settings'),
 ];

@@ -1,15 +1,26 @@
 /** The board agents: what each is for, and the ones waiting by their boards before anyone has asked them anything. */
 import { STATION_AGENT, type StationKind } from '../../shared/layout';
+import { labels, type TextKey } from '../i18n';
 import { Worker } from '../world/character';
 import type { DeskView } from '../world/types';
 import type { World } from '../world/world';
 import { noOutline } from './outline';
 
-/** What each board agent is for: its board's icon, what it offers on the card over its head, and an example ask. */
-export const STATION_INFO: Record<StationKind, { icon: string; offer: string; does: string; example: string }> = {
-  issues: { icon: '📌', offer: 'Ask me about issues', does: 'I file, find, triage, label and close them', example: 'File an issue: the dog walks straight through the jukebox' },
-  pulls: { icon: '🔀', offer: 'Ask me about PRs', does: 'I sum up, review, comment on and merge them', example: 'Review the newest PR and tell me if it’s ready to merge' },
-  queue: { icon: '📋', offer: 'Ask me to queue work', does: 'I turn it into tasks for fresh workers', example: 'Queue every open bug issue, most important first' },
+type StationText = 'offer' | 'about' | 'does' | 'example';
+
+/** A board agent's words, read in the language now each time (see labels), with its board's icon. */
+function station(icon: string, keys: Record<StationText, TextKey>): { icon: string } & Record<StationText, string> {
+  return Object.assign(labels(keys), { icon });
+}
+
+/**
+ * What each board agent is for: its board's icon, what it offers on the card over its head (and the
+ * same without "Ask me" for the hint bar), and an example ask, shown as the prompt's placeholder only.
+ */
+export const STATION_INFO: Record<StationKind, { icon: string } & Record<StationText, string>> = {
+  issues: station('📌', { offer: 'desks.station.issues.offer', about: 'desks.station.issues.about', does: 'desks.station.issues.does', example: 'desks.station.issues.example' }),
+  pulls: station('🔀', { offer: 'desks.station.pulls.offer', about: 'desks.station.pulls.about', does: 'desks.station.pulls.does', example: 'desks.station.pulls.example' }),
+  queue: station('📋', { offer: 'desks.station.queue.offer', about: 'desks.station.queue.about', does: 'desks.station.queue.does', example: 'desks.station.queue.example' }),
 };
 
 /** A board agent waiting by its board before anyone has asked it anything (see buildKiosk), and where. */

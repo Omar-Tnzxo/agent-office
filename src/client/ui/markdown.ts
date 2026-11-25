@@ -2,6 +2,7 @@ import './markdown.css';
 import { Marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { h } from './dom';
+import { t } from '../i18n';
 
 // GitHub-flavored markdown for issue and PR text: rendered by marked, then sanitized by DOMPurify
 // before it touches the page, since anyone who can open an issue writes it.
@@ -92,9 +93,11 @@ function sanitized(html: string): DocumentFragment {
 
 /** Renders markdown into a `.md` block. `itemUrl` (the issue or PR on GitHub) anchors its links. */
 export function markdown(src: string, itemUrl?: string): HTMLElement {
-  const el = h('div.md');
+  // What people wrote reads in its own direction (an English issue stays left to right on an Arabic page).
+  const el = h('div.md', { dir: 'auto' });
   if (!src.trim()) {
-    el.append(h('p.none', {}, 'No description provided.'));
+    el.removeAttribute('dir');
+    el.append(h('p.none', {}, t('panels.md.none')));
     return el;
   }
   el.append(sanitized(md.parse(src, { async: false }) as string));

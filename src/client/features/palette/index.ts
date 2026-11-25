@@ -13,6 +13,7 @@ import { isTyping } from '../../player';
 import { store } from '../../state';
 import { openAccounts } from '../../ui/accounts';
 import { openBoard } from '../../ui/boards';
+import { t, type TextKey } from '../../i18n';
 import { STATUS_LABEL, toast } from '../../ui/dom';
 import { paletteOpen, togglePalette, type PaletteEntry } from '../../ui/palette';
 import { openIssue, openPull } from '../../ui/pull';
@@ -21,6 +22,10 @@ import { openTeam } from '../../ui/team';
 import { IS_MAC } from '../../ui/termkeys';
 import { openWhiteboard } from '../whiteboard/ui';
 import type { InteractKind, Interactable } from '../../world/types';
+
+/** A pull request's or an issue's state on GitHub, as the palette writes it ("open", "merged"). */
+const GH_STATE: Record<string, TextKey> = { OPEN: 'desks.palette.state.open', CLOSED: 'desks.palette.state.closed', MERGED: 'desks.palette.state.merged' };
+const ghState = (state: string) => (GH_STATE[state] ? t(GH_STATE[state]) : state.toLowerCase());
 
 export type PaletteParts = Pick<Parts, 'walking' | 'waiting' | 'actions' | 'hud' | 'hanging' | 'meeting' | 'telescope' | 'visitorWatch'>;
 
@@ -73,12 +78,12 @@ export function installPalette(ctx: Ctx, parts: PaletteParts) {
       const open = () => waiting.openWorkerTerminal(w.id);
       out.push({
         icon: desk?.station ? STATION_INFO[desk.station].icon : w.kind === 'shell' ? '🐚' : '🧑‍💻',
-        kind: 'Worker',
+        kind: t('desks.palette.kind.worker'),
         title: w.name,
         detail: [w.task?.name, desk?.label, STATUS_LABEL[w.status]].filter(Boolean).join(' · '),
         keywords: [w.title, w.worktree?.branch],
         open,
-        walk: desk && spot ? () => walkThen(spot, `${w.name} at ${desk.label}`, open, desk) : undefined,
+        walk: desk && spot ? () => walkThen(spot, t('desks.palette.workerAt', { name: w.name, desk: desk.label }), open, desk) : undefined,
       });
     }
 
@@ -89,46 +94,48 @@ export function installPalette(ctx: Ctx, parts: PaletteParts) {
 
     const free = nearestFreeDesk();
     const hireAt = (d: DeskDef) => () => actions.hireAtDesk(d.id);
+    const action = t('desks.palette.kind.action');
+    const board = t('desks.palette.kind.board');
     out.push({
       icon: '✨',
-      kind: 'Action',
-      title: 'Hire a worker',
-      detail: free ? `At ${free.label}, the free desk nearest you` : 'Every desk is taken',
+      kind: action,
+      title: t('desks.hint.hire'),
+      detail: free ? t('desks.palette.hireAt', { desk: free.label }) : t('desks.palette.allTaken'),
       keywords: ['new worker', 'spawn an agent'],
-      open: free ? hireAt(free) : () => toast('Every desk on this floor is taken', 'warn'),
+      open: free ? hireAt(free) : () => toast(t('desks.palette.floorTaken'), 'warn'),
       walk: free ? () => walkThen(deskSpot(free)!, free.label, hireAt(free), free) : undefined,
     });
-    out.push(at('queue', 'the task queue', { icon: '📋', kind: 'Action', title: 'Open the task queue', detail: 'Issues and tasks waiting for a worker', keywords: ['backlog', 'tasks'], open: showQueue }));
-    out.push({ icon: '⚙️', kind: 'Action', title: 'Settings', keywords: ['preferences', 'options'], open: () => parts.hud.showSettings() });
-    if (store.invites) out.push({ icon: '👥', kind: 'Action', title: 'Invite teammates', keywords: ['team', 'add people'], open: () => openTeam(net) });
-    else if (store.me.admin) out.push({ icon: '👥', kind: 'Action', title: 'Invite people', detail: 'Accounts', keywords: ['invite teammates', 'accounts', 'team'], open: () => openAccounts(net) });
-    out.push({ icon: '🖼️', kind: 'Action', title: 'Hang a picture', detail: 'On a wall of this floor', keywords: ['decorate', 'frame', 'art'], open: hanging.startHanging });
-    out.push({ icon: '🔎', kind: 'Action', title: 'Search the chat and every terminal', keywords: ['find'], open: showSearch });
+    out.push(at('queue', t('desks.palette.theQueue'), { icon: '📋', kind: action, title: t('desks.palette.openQueue'), detail: t('desks.palette.queueDetail'), keywords: ['backlog', 'tasks'], open: showQueue }));
+    out.push({ icon: '⚙️', kind: action, title: t('desks.palette.settings'), keywords: ['preferences', 'options'], open: () => parts.hud.showSettings() });
+    if (store.invites) out.push({ icon: '👥', kind: action, title: t('desks.palette.inviteTeammates'), keywords: ['team', 'add people'], open: () => openTeam(net) });
+    else if (store.me.admin) out.push({ icon: '👥', kind: action, title: t('desks.palette.invitePeople'), detail: t('desks.palette.accounts'), keywords: ['invite teammates', 'accounts', 'team'], open: () => openAccounts(net) });
+    out.push({ icon: '🖼️', kind: action, title: t('desks.palette.hangPicture'), detail: t('desks.palette.hangDetail'), keywords: ['decorate', 'frame', 'art'], open: hanging.startHanging });
+    out.push({ icon: '🔎', kind: action, title: t('desks.palette.search'), keywords: ['find'], open: showSearch });
 
-    out.push(at('issues', 'the Issues board', { icon: '📌', kind: 'Board', title: 'Issues board', open: () => openBoard('issues', net, actions.boardActions()) }));
-    out.push(at('pulls', 'the PR board', { icon: '🔀', kind: 'Board', title: 'PR board', keywords: ['pull requests'], open: () => openBoard('pulls', net, actions.boardActions()) }));
-    out.push(at('services', 'the Services board', { icon: '🌐', kind: 'Board', title: 'Services board', detail: 'Web servers the workers are running', open: () => openServices() }));
-    out.push(at('whiteboard', 'the whiteboard', { icon: '📝', kind: 'Board', title: 'Whiteboard', open: () => openWhiteboard(net) }));
-    out.push(at('meeting', 'the meeting room', { icon: '🤝', kind: 'Board', title: 'Meeting room', keywords: ['call a meeting'], open: () => meeting.showMeeting() }));
+    out.push(at('issues', t('desks.palette.theIssues'), { icon: '📌', kind: board, title: t('desks.palette.issuesBoard'), open: () => openBoard('issues', net, actions.boardActions()) }));
+    out.push(at('pulls', t('desks.palette.thePrs'), { icon: '🔀', kind: board, title: t('desks.palette.prBoard'), keywords: ['pull requests'], open: () => openBoard('pulls', net, actions.boardActions()) }));
+    out.push(at('services', t('desks.palette.theServices'), { icon: '🌐', kind: board, title: t('desks.palette.servicesBoard'), detail: t('desks.palette.servicesDetail'), open: () => openServices() }));
+    out.push(at('whiteboard', t('desks.palette.theWhiteboard'), { icon: '📝', kind: board, title: t('desks.palette.whiteboard'), open: () => openWhiteboard(net) }));
+    out.push(at('meeting', t('desks.palette.theMeeting'), { icon: '🤝', kind: board, title: t('desks.palette.meetingRoom'), keywords: ['call a meeting'], open: () => meeting.showMeeting() }));
 
     for (const pr of store.pulls.items) {
       out.push(
-        at('pulls', 'the PR board', {
+        at('pulls', t('desks.palette.thePrs'), {
           icon: '🔀',
           kind: 'PR',
           title: `#${pr.number} ${pr.title}`,
-          detail: [pr.isDraft ? 'Draft' : pr.state.toLowerCase(), pr.headRefName, pr.author].join(' · '),
+          detail: [pr.isDraft ? t('desks.palette.draft') : ghState(pr.state), pr.headRefName, pr.author].join(' · '),
           open: () => openPull(pr, net, actions.boardActions()),
         }),
       );
     }
     for (const issue of store.issues.items) {
       out.push(
-        at('issues', 'the Issues board', {
+        at('issues', t('desks.palette.theIssues'), {
           icon: '📌',
           kind: 'Issue',
           title: `#${issue.number} ${issue.title}`,
-          detail: [issue.state.toLowerCase(), ...issue.labels.map((l) => l.name), issue.author].join(' · '),
+          detail: [ghState(issue.state), ...issue.labels.map((l) => l.name), issue.author].join(' · '),
           open: () => openIssue(issue, net, actions.boardActions()),
         }),
       );
@@ -137,20 +144,21 @@ export function installPalette(ctx: Ctx, parts: PaletteParts) {
       const board = spotOf('services');
       out.push({
         icon: '🌐',
-        kind: 'Service',
+        kind: t('desks.palette.kind.service'),
         title: svc.title || svc.command,
         detail: [`:${svc.port}`, svc.title && svc.command, store.workers.get(svc.workerId)?.name].filter(Boolean).join(' · '),
         keywords: [String(svc.port)],
         // As its Open ↗ button does. A new tab needs the key press itself, so walking there shows the board instead.
         open: () => window.open(serviceUrl(svc.port), '_blank', 'noopener'),
-        walk: board ? () => walkThen(board, 'the Services board', () => openServices()) : undefined,
+        walk: board ? () => walkThen(board, t('desks.palette.theServices'), () => openServices()) : undefined,
       });
     }
     for (const p of store.peers.values()) {
       if (p.id === store.you) continue;
-      const floor = store.onMyFloor(p) ? 'On this floor' : `On the ${store.floors.find((f) => f.id === p.floor)?.name ?? 'other'} floor`;
+      const floorName = store.floors.find((f) => f.id === p.floor)?.name;
+      const floor = store.onMyFloor(p) ? t('desks.palette.thisFloor') : floorName ? t('desks.palette.onFloor', { floor: floorName }) : t('desks.palette.otherFloor');
       // As clicking them under "In the office" does: over to them, by elevator if need be.
-      out.push({ icon: '🙂', kind: 'Teammate', title: p.name, detail: floor, open: () => parts.walking.walkTo(p.id) });
+      out.push({ icon: '🙂', kind: t('desks.palette.kind.teammate'), title: p.name, detail: floor, open: () => parts.walking.walkTo(p.id) });
     }
     return out;
   }

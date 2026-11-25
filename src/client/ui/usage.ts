@@ -2,52 +2,63 @@ import { fmtCost, fmtTokens, tokensOf, type AgentProvider, type Usage } from '..
 import { store } from '../state';
 import { $, h } from './dom';
 import { providerUsageState, providerUsageTracked, resolvedProvider } from './provider';
+import { onLang, t, tn } from '../i18n';
 
 export { fmtCost, fmtTokens, tokensOf };
 
 function displayedCost(u: Usage): string {
-  return u.costKnown === false ? 'cost unavailable' : fmtCost(u.cost);
+  return u.costKnown === false ? t('panels.use.noCost') : fmtCost(u.cost);
 }
+
+/** The token split behind a figure, in three lines. */
+const split = (input: number, output: number, reasoning: number, cacheWrite: number, cacheRead: number) => [
+  t('panels.use.io', { input: fmtTokens(input), output: fmtTokens(output) }),
+  t('panels.use.reasoning', { n: fmtTokens(reasoning) }),
+  t('panels.use.cache', { write: fmtTokens(cacheWrite), read: fmtTokens(cacheRead) }),
+];
 
 /** e.g. "$0.42 · 38k tokens"; OpenCode's amount is explicitly an estimate. */
 export function usageLabel(u: Usage, provider: AgentProvider = 'claude'): string {
   const money = provider === 'codex' && u.costKnown !== true
-    ? 'cost unavailable'
+    ? t('panels.use.noCost')
     : u.costKnown === false
-      ? 'cost unavailable'
-      : `${fmtCost(u.cost)}${provider === 'opencode' ? ' reported' : ''}`;
+      ? t('panels.use.noCost')
+      : provider === 'opencode' ? t('panels.use.reported', { cost: fmtCost(u.cost) }) : fmtCost(u.cost);
+  const partial = u.incomplete ? t('panels.use.partial') : '';
   // DeepSeek Harness reports what is in the context window, not a token split.
   if (provider === 'dsh') {
     const window = u.contextSize !== undefined ? ` / ${fmtTokens(u.contextSize)}` : '';
     const spend = u.costKnown === true ? `${fmtCost(u.cost)} · ` : '';
-    return `${u.incomplete ? 'Partial: ' : ''}${spend}${fmtTokens(tokensOf(u))}${window} context`;
+    return `${partial}${spend}${t('panels.use.context', { n: `${fmtTokens(tokensOf(u))}${window}` })}`;
   }
-  return `${u.incomplete ? "Partial: " : ""}${money} · ${fmtTokens(tokensOf(u))} tokens`;
+  return `${partial}${money} · ${t('panels.use.tokens', { n: fmtTokens(tokensOf(u)) })}`;
 }
 
 /** The breakdown behind a figure, for a tooltip. */
 export function usageTitle(u: Usage, provider: AgentProvider = 'claude'): string {
-  const money = provider === 'codex' && u.costKnown !== true ? 'cost unavailable' : u.costKnown === false ? 'cost unavailable' : fmtCost(u.cost);
+  const money = provider === 'codex' && u.costKnown !== true ? t('panels.use.noCost') : u.costKnown === false ? t('panels.use.noCost') : fmtCost(u.cost);
   const calls = provider === 'codex' || u.callsKnown === false
-    ? 'API call count unavailable'
+    ? t('panels.use.noCalls')
     : provider === 'opencode'
-      ? `${u.calls} reported call${u.calls === 1 ? '' : 's'}`
-      : `${u.calls} API call${u.calls === 1 ? '' : 's'}`;
-  const dshContext = u.contextSize !== undefined ? `${fmtTokens(tokensOf(u))} of ${fmtTokens(u.contextSize)} context tokens` : `${fmtTokens(tokensOf(u))} context tokens`;
+      ? tn('panels.use.reportedCalls', u.calls)
+      : tn('panels.use.calls', u.calls);
+  const dshContext = u.contextSize !== undefined ? t('panels.use.contextOf', { n: fmtTokens(tokensOf(u)), max: fmtTokens(u.contextSize) }) : t('panels.use.contextTokens', { n: fmtTokens(tokensOf(u)) });
   return [
-    ...(u.incomplete ? ['Partial metrics: some session history is still loading or unavailable.'] : []),
+    ...(u.incomplete ? [t('panels.use.partialTitle')] : []),
     provider === 'codex'
-      ? `Codex root-session metrics; subagent usage is not included; ${money}; ${calls}`
+      ? t('panels.use.codexTitle', { money, calls })
       : provider === 'opencode'
-        ? `OpenCode reported estimate ${money}; model/provider estimate, not billing; ${calls}`
+        ? t('panels.use.ocTitle', { money, calls })
         : provider === 'dsh'
-          ? `DeepSeek Harness context usage from ACP: ${dshContext}; session cost ${u.costKnown === true ? money : 'unavailable'}; ${calls}`
-          : `${money} over ${calls}`,
-    `input ${fmtTokens(u.input)} · output ${fmtTokens(u.output)}`,
-    `reasoning ${fmtTokens(u.reasoning ?? 0)}`,
-    `cache write ${fmtTokens(u.cacheWrite)} · cache read ${fmtTokens(u.cacheRead)}`,
+          ? t('panels.use.dshTitle', { context: dshContext, cost: u.costKnown === true ? money : t('panels.use.unavailable'), calls })
+          : t('panels.use.over', { money, calls }),
+    ...split(u.input, u.output, u.reasoning ?? 0, u.cacheWrite, u.cacheRead),
   ].join('\n');
 }
+
+let drawn = false;
+// Always on screen: a switch of language draws it again.
+onLang(() => drawn && renderUsage());
 
 export function overBudget(): boolean {
   const s = store.usage;
@@ -143,8 +154,9 @@ export function renderUsage() {
     if (providerUsageTracked(provider, store.project, w.usage) && w.usage?.costKnown !== false && !w.usage?.incomplete) now += w.usage?.cost ?? 0;
   }
   const head = $('workers-cost');
+  drawn = true;
   head.textContent = now > 0 ? fmtCost(now) : '';
-  head.title = 'Current desks: tracked Claude Code costs plus reported OpenCode and DeepSeek Harness estimates; Codex root-session tokens appear below; sessions with unavailable cost or partial history are excluded.';
+  head.title = t('panels.use.headTitle');
 
   const el = $('usage');
   const any = s.total.calls > 0 || s.budget !== undefined || untracked || currentOpenCodeReports > 0 || openCodeWaiting || currentCodexReports > 0 || codexWaiting || currentDshReports > 0 || dshWaiting;
@@ -158,54 +170,40 @@ export function renderUsage() {
       h(
         'div.row',
         {},
-        h('span', {}, '💸 Claude Code today'),
+        h('span', {}, t('panels.use.today')),
         h('b', { title: usageTitle(s.today, 'claude') }, displayedCost(s.today)),
-        s.budget !== undefined ? h('span.muted', {}, `of ${fmtCost(s.budget)}`) : h('span.muted', {}, `· ${fmtTokens(tokensOf(s.today))} tokens`),
+        s.budget !== undefined ? h('span.muted', {}, t('panels.use.of', { budget: fmtCost(s.budget) })) : h('span.muted', {}, `· ${t('panels.use.tokens', { n: fmtTokens(tokensOf(s.today)) })}`),
       ),
     );
   }
   if (s.budget !== undefined) {
     const pct = Math.min(100, (s.today.cost / s.budget) * 100);
-    const state = over ? (s.pauseHiring ? 'Budget spent — no new hires until tomorrow' : 'Budget spent') : `${Math.round(pct)}% of today's budget`;
+    const state = over ? (s.pauseHiring ? t('panels.use.spentPaused') : t('panels.use.spent')) : t('panels.use.pct', { pct: Math.round(pct) });
     rows.push(h('div.budget', { class: over ? 'over' : pct >= 80 ? 'near' : '', title: state, role: 'progressbar', 'aria-valuenow': Math.round(pct) }, h('div.fill', { style: `width:${pct}%` })));
   }
-  if (s.total.calls > 0 || s.budget !== undefined) rows.push(h('div.row.muted', { title: usageTitle(s.total, 'claude') }, `Claude Code all time ${displayedCost(s.total)} · ${fmtTokens(tokensOf(s.total))} tokens`));
+  if (s.total.calls > 0 || s.budget !== undefined) rows.push(h('div.row.muted', { title: usageTitle(s.total, 'claude') }, t('panels.use.allTime', { cost: displayedCost(s.total), n: fmtTokens(tokensOf(s.total)) })));
   if (currentOpenCodeReports > 0) {
-    const amount = currentOpenCodeCostUnknown ? 'cost unavailable' : `${fmtCost(currentOpenCodeCost)} reported`;
+    const amount = currentOpenCodeCostUnknown ? t('panels.use.noCost') : t('panels.use.reported', { cost: fmtCost(currentOpenCodeCost) });
     rows.push(
       h(
         'div.row.muted',
-        {
-          title: [
-            'OpenCode current-desk metrics are model/provider estimates, not billing.',
-            `input ${fmtTokens(currentOpenCodeInput)} · output ${fmtTokens(currentOpenCodeOutput)}`,
-            `reasoning ${fmtTokens(currentOpenCodeReasoning)}`,
-            `cache write ${fmtTokens(currentOpenCodeCacheWrite)} · cache read ${fmtTokens(currentOpenCodeCacheRead)}`,
-          ].join('\n'),
-        },
-        `OpenCode ${currentOpenCodeIncomplete ? "partial" : "current desks"} ${amount} · ${fmtTokens(currentOpenCodeTokens)} tokens`,
+        { title: [t('panels.use.ocDesks'), ...split(currentOpenCodeInput, currentOpenCodeOutput, currentOpenCodeReasoning, currentOpenCodeCacheWrite, currentOpenCodeCacheRead)].join('\n') },
+        t('panels.use.row', { provider: 'OpenCode', what: t(currentOpenCodeIncomplete ? 'panels.use.partialWord' : 'panels.use.desks'), amount, n: fmtTokens(currentOpenCodeTokens) }),
       ),
     );
   }
-  if (openCodeWaiting) rows.push(h('div.row.muted', { title: 'OpenCode usage appears after its first metrics report.' }, 'OpenCode metrics waiting for first report'));
+  if (openCodeWaiting) rows.push(h('div.row.muted', { title: t('panels.use.ocWait.title') }, t('panels.use.wait', { provider: 'OpenCode' })));
   if (currentCodexReports > 0) {
-    const amount = currentCodexCostUnknown ? 'cost unavailable' : fmtCost(currentCodexCost);
+    const amount = currentCodexCostUnknown ? t('panels.use.noCost') : fmtCost(currentCodexCost);
     rows.push(
       h(
         'div.row.muted',
-        {
-          title: [
-            'Codex current-desk metrics cover the root session only; subagent usage is not included; cost is unavailable.',
-            `input ${fmtTokens(currentCodexInput)} · output ${fmtTokens(currentCodexOutput)}`,
-            `reasoning ${fmtTokens(currentCodexReasoning)}`,
-            `cache write ${fmtTokens(currentCodexCacheWrite)} · cache read ${fmtTokens(currentCodexCacheRead)}`,
-          ].join('\n'),
-        },
-        `Codex ${currentCodexIncomplete ? 'partial' : 'current desks'} ${amount} · ${fmtTokens(currentCodexTokens)} tokens`,
+        { title: [t('panels.use.codexDesks'), ...split(currentCodexInput, currentCodexOutput, currentCodexReasoning, currentCodexCacheWrite, currentCodexCacheRead)].join('\n') },
+        t('panels.use.row', { provider: 'Codex', what: t(currentCodexIncomplete ? 'panels.use.partialWord' : 'panels.use.desks'), amount, n: fmtTokens(currentCodexTokens) }),
       ),
     );
   }
-  if (codexWaiting) rows.push(h('div.row.muted', { title: 'Codex usage appears after its first root-session metrics report; subagent usage is not included.' }, 'Codex metrics waiting for first report'));
+  if (codexWaiting) rows.push(h('div.row.muted', { title: t('panels.use.codexWait.title') }, t('panels.use.wait', { provider: 'Codex' })));
   if (currentDshReports > 0) {
     const context = currentDshContext > 0 ? ` / ${fmtTokens(currentDshContext)}` : '';
     const spend = currentDshCostKnown ? `${fmtCost(currentDshCost)} · ` : '';
@@ -214,17 +212,17 @@ export function renderUsage() {
         'div.row.muted',
         {
           title: [
-            'DeepSeek Harness reports what is in each session\u2019s context window over ACP after a turn; cost appears only when the harness supplies it, and is never billing.',
-            `${currentDshReports} worker${currentDshReports === 1 ? '' : 's'} · ${fmtTokens(currentDshTokens)}${context} context tokens`,
+            t('panels.use.dshDesks'),
+            tn('panels.use.dshWorkers', currentDshReports, { tokens: `${fmtTokens(currentDshTokens)}${context}` }),
           ].join('\n'),
         },
-        `DeepSeek Harness current desks ${spend}${fmtTokens(currentDshTokens)}${context} context`,
+        t('panels.use.dshRow', { spend, n: `${fmtTokens(currentDshTokens)}${context}` }),
       ),
     );
   }
-  if (dshWaiting) rows.push(h('div.row.muted', { title: 'DeepSeek Harness usage appears after its first ACP usage update.' }, 'DeepSeek Harness metrics waiting for first report'));
+  if (dshWaiting) rows.push(h('div.row.muted', { title: t('panels.use.dshWait.title') }, t('panels.use.wait', { provider: 'DeepSeek Harness' })));
   if (untracked) {
-    rows.push(h('div.row.muted', { title: 'Custom provider usage is not reported by the office.' }, 'Custom usage untracked · budget and totals cover Claude Code only'));
+    rows.push(h('div.row.muted', { title: t('panels.use.custom.title') }, t('panels.use.custom')));
   }
   el.replaceChildren(...rows);
 }

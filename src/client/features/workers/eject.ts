@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { adrift } from '../../../shared/maps';
+// As `phrase`: these steps keep their seconds in a `t` of their own.
+import { t as phrase, type TextKey } from '../../i18n';
 import type { AirlockView } from '../../world/station/airlock';
 import { ADRIFT_SCALE, float } from './adrift';
 import { pick, wrap, type Sendoff, type StepHost } from './sendoff';
@@ -19,8 +21,8 @@ const EJECT = { open: 0.5, step: 0.6, seal: 0.5, wait: 1.8, part: 0.22, blow: 5.
 /** A worker's middle is this far above its feet (see adrift.ts). */
 const MIDDLE = 0.45;
 
-const PLEAS = ['😨 Wait, wait, wait!', '🥺 Let’s talk about this!', '😰 I’ll fix the tests!', '🙏 One more chance!', '😳 Is this thing on?', '🚪 Hello? The door?'];
-const CRIES = ['😱 AAAAAAH!', '😵 NOOOoooo…', '🫨 WHOAAAA!', '😭 I regret nothiiing!', '🚀 Wheeeee!', '🫠 Tell my PR I loved it!'];
+const PLEAS: TextKey[] = ['desks.eject.wait', 'desks.eject.talk', 'desks.eject.fixTests', 'desks.eject.chance', 'desks.eject.on', 'desks.eject.door'];
+const CRIES: TextKey[] = ['desks.eject.aah', 'desks.eject.no', 'desks.eject.whoa', 'desks.eject.regret', 'desks.eject.wheee', 'desks.eject.myPr'];
 
 /** Whose turn it is in each airlock: one at a time. */
 const using = new WeakMap<AirlockView, string>();
@@ -104,7 +106,7 @@ export function eject(host: StepHost, s: Sendoff): boolean {
       if (k < 1) return false;
       lock.alarm(true);
       host.sounds.airlock(lock.doorAt, 'alarm');
-      s.model.say(pick(PLEAS));
+      s.model.say(phrase(pick(PLEAS)));
       next('wait');
       return false;
     }
@@ -112,7 +114,7 @@ export function eject(host: StepHost, s: Sendoff): boolean {
     s.model.walking = true;
     if (t < EJECT.wait) return false;
     host.sounds.airlock(lock.hatchAt, 'blow');
-    s.model.say(pick(CRIES));
+    s.model.say(phrase(pick(CRIES)));
     j.from.copy(pos);
     j.turn.copy(root.quaternion);
     next('blow');

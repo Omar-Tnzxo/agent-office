@@ -4,6 +4,7 @@ import type { WorkerInfo } from '../../../shared/protocol';
 import type { Net } from '../../net';
 import { store } from '../../state';
 import { h, openModal, toast, type Modal } from '../../ui/dom';
+import { onLang, t } from '../../i18n';
 import { ScreenZoom } from '../arcade/ui';
 import { Blocks, H, W, paintScreen, type ScreenView } from './blocks';
 
@@ -83,6 +84,7 @@ export class Cabinet {
     mat.color.set('#ffffff');
     // Canvas text only picks up the office's font once it has loaded.
     void document.fonts.ready.then(() => (this.dirty = true));
+    onLang(() => (this.dirty = true));
     store.on('cabinet', () => this.onState());
     store.on('cabinetFrame', () => this.onFrame());
     store.on('workers', () => this.onWorkers());
@@ -187,9 +189,9 @@ export class Cabinet {
   private open(mode: 'play' | 'watch') {
     this.mode = mode;
     this.watching = mode === 'watch' ? (store.cabinet.player?.name ?? '') : '';
-    const board = h('canvas', { 'aria-label': mode === 'play' ? GAME : `${this.watching} playing ${GAME}` });
-    const stop = h('button.btn', { type: 'button' }, mode === 'play' ? '✕ Stop playing' : '✕ Stop watching');
-    const tip = mode === 'play' ? '← → move · ↑ turn · ↓ faster · Space drop · C hold · P pause' : `👀 Watching ${this.watching}`;
+    const board = h('canvas', { 'aria-label': mode === 'play' ? GAME : t('toys.cab.playingGame', { name: this.watching, game: GAME }) });
+    const stop = h('button.btn', { type: 'button' }, t(mode === 'play' ? 'toys.mines.stop' : 'toys.cab.stopWatching'));
+    const tip = mode === 'play' ? t('toys.cab.keys') : t('toys.cab.watching', { name: this.watching });
     const call = h('div.cabinet-call.hidden', { role: 'status' });
     const box = h(
       'div.arcade.cabinet',
@@ -300,13 +302,13 @@ export class Cabinet {
         // It can't follow the old game on from where it was, so a new one for the new game it started.
         if (lostGame(this.asked, p.game)) {
           this.newGame();
-          toast("🕹️ The office lost track of your game, so here's a new one");
+          toast(t('toys.cab.lost'));
         }
         this.asked = '';
         this.game.id = p.game;
       }
     } else if (this.mode === 'watch' && (!p || p.id === store.you || p.name !== this.watching)) {
-      if (!p) toast(`${this.watching} stepped away from the arcade`);
+      if (!p) toast(t('toys.cab.steppedAway', { name: this.watching }));
       this.modal?.close();
     }
     this.dirty = true;
@@ -338,14 +340,14 @@ export class Cabinet {
     const w = this.waiting;
     el.classList.toggle('hidden', !w);
     if (!w) return el.replaceChildren();
-    const go = h('button.btn.primary', { type: 'button' }, '💬 Open its terminal');
-    const back = h('button.btn', { type: 'button' }, '▶ Carry on');
+    const go = h('button.btn.primary', { type: 'button' }, t('toys.cab.openTerminal'));
+    const back = h('button.btn', { type: 'button' }, `▶ ${t('toys.cab.carryOn')}`);
     go.addEventListener('click', () => {
       this.modal?.close();
       this.opts.openTerminal(w.id);
     });
     back.addEventListener('click', () => this.resume());
-    el.replaceChildren(h('span', {}, `🙋 ${w.name} needs input${deskOf(w)}`), go, back);
+    el.replaceChildren(h('span', {}, `🙋 ${t('toys.cab.needsInput', { name: w.name })}${deskOf(w)}`), go, back);
   }
 
   /** Nobody's game on the screen, just the high scores. */
@@ -355,7 +357,7 @@ export class Cabinet {
   }
 
   /** What the screen shows: your game, someone else's, or the high scores with nobody playing. */
-  private screen(t: number): ScreenView {
+  private screen(at: number): ScreenView {
     const c = store.cabinet;
     const g = this.game;
     if (this.mode === 'play' && g) {
@@ -365,16 +367,16 @@ export class Cabinet {
         player: store.profile.name,
         scores: c.scores,
         mine: g.id,
-        note: this.waiting ? `${this.waiting.name} needs you${deskOf(this.waiting)}` : 'P to carry on',
-        prompt: rank ? `🏆 #${rank} on the table! Enter: again` : 'Enter to play again',
-        t,
+        note: this.waiting ? `${t('toys.cab.needsYou', { name: this.waiting.name })}${deskOf(this.waiting)}` : t('toys.cab.pToCarry'),
+        prompt: rank ? t('toys.cab.ranked', { rank }) : t('toys.cab.enterAgain'),
+        t: at,
       };
     }
     if (c.player && c.player.id !== store.you) {
-      return { frame: store.cabinetFrame, player: c.player.name, scores: c.scores, mine: c.player.game, note: 'Back in a moment', prompt: store.cabinetFrame ? undefined : `▶ ${c.player.name.toUpperCase()}`, t };
+      return { frame: store.cabinetFrame, player: c.player.name, scores: c.scores, mine: c.player.game, note: t('toys.cab.back'), prompt: store.cabinetFrame ? undefined : `▶ ${c.player.name.toUpperCase()}`, t: at };
     }
     const left = this.leftAt !== null;
-    return { frame: null, scores: c.scores, mine: g?.id, prompt: left ? 'PRESS E TO CARRY ON' : 'PRESS E TO PLAY', t };
+    return { frame: null, scores: c.scores, mine: g?.id, prompt: t(left ? 'toys.cab.pressCarry' : 'toys.cab.pressPlay'), t: at };
   }
 
   /** Draws the screen up close while you play or watch, and on the cabinet otherwise (the close one covers it). */
@@ -401,5 +403,5 @@ export function lostGame(asked: string, id: string): boolean {
 /** " at Desk 3", or nothing when it's not at a desk here. */
 function deskOf(w: WorkerInfo): string {
   const d = store.plan().byId.get(w.deskId);
-  return d ? ` at ${d.station ? `the ${d.label}` : d.label}` : '';
+  return d ? ` ${t(d.station ? 'toys.cab.atStation' : 'toys.cab.atDesk', { label: d.label })}` : '';
 }

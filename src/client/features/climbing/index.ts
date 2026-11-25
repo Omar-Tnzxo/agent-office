@@ -12,6 +12,7 @@ import { aside, hintTitle, key, onE } from '../../core/hint';
 import { DESK_KEYS } from '../../interaction';
 import { store } from '../../state';
 import { $, h, toast } from '../../ui/dom';
+import { t } from '../../i18n';
 
 // The kinds of thing you can use that this defines (see InteractKinds in world/types.ts).
 declare module '../../world/types' {
@@ -53,7 +54,8 @@ export function installClimbing(ctx: Ctx, deps: ClimbingDeps) {
       else if (kind === 'twirl') sound.twirl();
       else if (kind === 'bonk') {
         sound.bonk();
-        toast(`🔝 ${store.currentFloor()?.name ?? 'This'} is the top floor — the hatch won't budge`);
+        const top = store.currentFloor()?.name;
+        toast(top ? t('toys.climb.topFloor', { floor: top }) : t('toys.climb.thisTop'));
       } else if (kind === 'land') {
         sound.poleLanding(speed);
         landed(speed);
@@ -88,7 +90,7 @@ export function installClimbing(ctx: Ctx, deps: ClimbingDeps) {
       ctx.smoke.exhale(at, dir.set(Math.sin(a), 0.15, Math.cos(a)).normalize());
     }
     const f = store.currentFloor();
-    toast(`🚒 Wheee! Down to ${f?.name ?? 'the floor below'}`);
+    toast(t('toys.climb.landed', { floor: f?.name ?? t('toys.climb.below') }));
   }
   office.stack.onHatch = (where, open) => ctx.sound.hatch({ x: LADDER.x + 0.3, y: where === 'floor' ? 0 : WALL_HEIGHT, z: LADDER.z }, open);
   // Speed lines round the edge of the screen, sliding down a pole.
@@ -98,7 +100,7 @@ export function installClimbing(ctx: Ctx, deps: ClimbingDeps) {
   /** E at the ladder: onto it, facing the wall. */
   function grabLadder() {
     if (ctx.trip() || climber.active) return;
-    if (!floorThere(1) && !floorThere(-1)) return toast('No other floors yet — add a project in the elevator', 'warn');
+    if (!floorThere(1) && !floorThere(-1)) return toast(t('toys.climb.noFloors'), 'warn');
     if (ctx.player.seat) deps.standUp();
     ctx.activities.stopAll('start');
     deps.stopWalking();
@@ -129,7 +131,7 @@ export function installClimbing(ctx: Ctx, deps: ClimbingDeps) {
       const up = floorThere(1)?.name;
       const down = floorThere(-1)?.name;
       const where = [up && `⬆ ${up}`, down && `⬇ ${down}`].filter(Boolean).join(' · ');
-      return { k: where, parts: [hintTitle('🪜 Ladder'), aside(where || 'no other floors yet'), key('E', 'Climb on')] };
+      return { k: where, parts: [hintTitle(t('toys.climb.ladder')), aside(where || t('toys.climb.noOther')), key('E', t('toys.climb.climbOn'))] };
     },
     use: onE(() => grabLadder()),
   });
@@ -137,11 +139,11 @@ export function installClimbing(ctx: Ctx, deps: ClimbingDeps) {
     reach: 4,
     hint: () => {
       if (office.stack.polesGoDown()) {
-        const down = floorThere(-1)?.name ?? 'the floor below';
-        return { k: `down|${down}`, parts: [hintTitle('🚒 Fire pole'), aside(`down to ${down}`), key('E', 'Slide down!')] };
+        const down = floorThere(-1)?.name ?? t('toys.climb.below');
+        return { k: `down|${down}`, parts: [hintTitle(t('toys.climb.pole')), aside(t('toys.climb.downTo', { floor: down })), key('E', t('toys.climb.slide'))] };
       }
-      const up = floorThere(1)?.name ?? 'upstairs';
-      return { k: `landing|${up}`, parts: [hintTitle('🚒 Fire pole'), aside(`comes down from ${up}`), key('E', 'Twirl')] };
+      const up = floorThere(1)?.name ?? t('toys.climb.upstairs');
+      return { k: `landing|${up}`, parts: [hintTitle(t('toys.climb.pole')), aside(t('toys.climb.from', { floor: up })), key('E', t('toys.climb.twirl'))] };
     },
     use: onE((it) => {
       if (it.pole !== undefined) usePole(it.pole);
@@ -161,12 +163,12 @@ export function installClimbing(ctx: Ctx, deps: ClimbingDeps) {
       const busy = l.waiting || l.auto;
       k = `ladder|${up}|${down}|${atFloor}|${busy}`;
       parts = busy
-        ? [title('🪜 Climbing…')]
-        : [title('🪜 On the ladder'), up ? key('W', `Up to ${up}`) : aside('top floor'), key('S', down ? `Down to ${down}` : atFloor ? 'Step off' : 'Down'), key('E', atFloor ? 'Step off' : 'Let go')];
+        ? [title(t('toys.climb.climbing'))]
+        : [title(t('toys.climb.onLadder')), up ? key('W', t('toys.climb.upTo', { floor: up })) : aside(t('toys.climb.top')), key('S', down ? t('toys.climb.downToKey', { floor: down }) : t(atFloor ? 'toys.climb.stepOff' : 'toys.climb.down')), key('E', t(atFloor ? 'toys.climb.stepOff' : 'toys.climb.letGo'))];
     } else {
       const how = climber.sliding;
       k = `pole|${how}`;
-      parts = [title(how === 'twirl' ? '🚒 Wheee!' : '🚒 Wheeeeeee!')];
+      parts = [title(t(how === 'twirl' ? 'toys.climb.whee' : 'toys.climb.wheee'))];
     }
     ctx.hint.draw(el, k, () => parts);
   }

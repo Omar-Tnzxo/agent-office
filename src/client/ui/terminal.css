@@ -12,8 +12,8 @@
 /* Who's in the terminal: a face per person, and a pencil on whoever's typing. */
 .viewers { display: flex; align-items: center; gap: 4px; }
 .avatar { position: relative; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--ink); display: grid; place-items: center; flex: none; font-size: 10px; font-weight: 900; letter-spacing: -.02em; color: var(--ink); cursor: default; }
-.avatar.typing { margin-right: 4px; animation: typing-bob .9s ease-in-out infinite; }
-.avatar.typing::after { content: '✎'; position: absolute; right: -9px; bottom: -7px; width: 11px; height: 11px; border-radius: 50%; background: var(--paper); border: 2px solid var(--ink); font-size: 7px; line-height: 11px; text-align: center; }
+.avatar.typing { margin-inline-end: 4px; animation: typing-bob .9s ease-in-out infinite; }
+.avatar.typing::after { content: '✎'; position: absolute; inset-inline-end: -9px; bottom: -7px; width: 11px; height: 11px; border-radius: 50%; background: var(--paper); border: 2px solid var(--ink); font-size: 7px; line-height: 11px; text-align: center; }
 @keyframes typing-bob { 50% { transform: translateY(-3px); } }
 .modal.term header .typed.now { color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .avatar.typing { animation: none; } }

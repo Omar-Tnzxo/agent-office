@@ -1,33 +1,53 @@
+import { onLang, t } from './i18n';
+import { installPageLanguage, langSwitch } from './i18n/dom';
+import { serverText } from './i18n/server';
+
 // One-time password reveal: /claim?t=<token>. The server forgets the plaintext as soon as it answers.
+installPageLanguage('pages.claim.title');
+document.querySelector('main.card')!.prepend(langSwitch());
+
 const $ = (id: string) => document.getElementById(id)!;
 const token = new URLSearchParams(location.search).get('t') ?? '';
 // Keep the single-use token out of the address bar and history.
 history.replaceState(null, '', '/claim');
 
-function fail(msg: string) {
-  $('sub').textContent = '';
-  $('error').textContent = msg;
+/** The error shown, in the language at the time: written again after a switch. */
+let paintError = () => {};
+onLang(() => paintError());
+
+function fail(say: () => string) {
+  const sub = $('sub');
+  delete sub.dataset.i18n;
+  sub.textContent = '';
+  paintError = () => void ($('error').textContent = say());
+  paintError();
   $('login').hidden = false;
 }
 
 async function claim() {
-  if (!token) return fail('This link is missing its claim token.');
+  if (!token) return fail(() => t('pages.claim.noToken'));
   try {
     const res = await fetch('/api/claim', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }) });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) return fail(body.error ?? 'Could not unlock the office.');
-    $('sub').textContent = 'One last thing before you walk in:';
+    if (!res.ok) {
+      const said: string | undefined = body.error;
+      return fail(() => (said ? serverText(said) : t('pages.claim.failed')));
+    }
+    // The data-i18n on it is what a switch of language fills it with.
+    $('sub').dataset.i18n = 'pages.claim.lastThing';
+    $('sub').textContent = t('pages.claim.lastThing');
     $('pw').textContent = body.password;
     $('reveal').hidden = false;
   } catch {
-    fail('Server unreachable.');
+    fail(() => t('common.serverUnreachable'));
   }
 }
 
 $('copy').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText($('pw').textContent ?? '');
-    $('copy').textContent = 'Copied ✓';
+    $('copy').dataset.i18n = 'common.copied';
+    $('copy').textContent = t('common.copied');
   } catch {
     getSelection()?.selectAllChildren($('pw'));
   }

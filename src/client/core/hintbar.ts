@@ -6,6 +6,7 @@ import { $, modalOpen } from '../ui/dom';
 import type { Ctx } from './context';
 import type { CoreState } from './ctx';
 import { key } from './hint';
+import { lang, t } from '../i18n';
 import type { Parts } from './parts';
 
 export function installHintBar(ctx: Ctx, core: CoreState, parts: Pick<Parts, 'pointer' | 'focus' | 'place' | 'hoops' | 'cards'>) {
@@ -33,9 +34,10 @@ export function installHintBar(ctx: Ctx, core: CoreState, parts: Pick<Parts, 'po
     const throne = parts.place.onThrone() && !carrying && !withBall;
     if (throne) {
       if (ctx.world().herald && target?.kind !== 'herald') hint.parts.push(key('K', ctx.plan().herald!.name));
-      if (target?.kind !== 'seat') hint.parts.push(key('W A S D', 'Get up'));
+      if (target?.kind !== 'seat') hint.parts.push(key('W A S D', t('hud.getUp')));
     }
-    const k = `${withBall ? 'ball!' : `${target?.kind}${target?.deskId ?? ''}`}|${carrying?.issue ?? ''}|${throne}|${hint.k}`;
+    // The language is part of it, so a switch redraws the hint in the new words.
+    const k = `${lang()}|${withBall ? 'ball!' : `${target?.kind}${target?.deskId ?? ''}`}|${carrying?.issue ?? ''}|${throne}|${hint.k}`;
     if (k === core.hintKey) return;
     core.hintKey = k;
     el.replaceChildren(...hint.parts);
@@ -49,14 +51,14 @@ export function installHintBar(ctx: Ctx, core: CoreState, parts: Pick<Parts, 'po
     const relookOnKey = parts.focus.relookOnKey();
     const show = player.view === 'first' && !modalOpen() && !ctx.activities.any('takesCamera');
     const free = show && finePointer && player.canLock && !player.locked;
-    const k = `${show}|${!!target}|${free}|${relookOnKey}`;
+    const k = `${lang()}|${show}|${!!target}|${free}|${relookOnKey}`;
     if (k === crossKey) return;
     crossKey = k;
     const el = $('crosshair');
     el.classList.toggle('hidden', !show);
     el.classList.toggle('on', !!target);
     el.classList.toggle('free', free);
-    el.querySelector('.look-hint')!.textContent = relookOnKey ? 'Press a key or click to look around' : 'Click to look around';
+    el.querySelector('.look-hint')!.textContent = t(relookOnKey ? 'hud.lookAroundKey' : 'hud.lookAround');
   }
 
   return { renderHint, renderCrosshair };

@@ -17,6 +17,7 @@ import type { Parts } from '../../core/parts';
 import { canWatch } from '../visitor-watch';
 import { laptopScreen, showOnLaptop } from '../visitor-watch/screen';
 import { noOutline } from '../../core/outline';
+import { labels, ltrText, onLang, t, tn } from '../../i18n';
 import { store } from '../../state';
 import { SubagentCrowd, Worker, subagentColor } from '../../world/character';
 import type { DeskView, Interactable } from '../../world/types';
@@ -42,12 +43,12 @@ const HOLD_LEAVE = 5;
 const LAPTOP_GONE = 0.3;
 const NOBODY: readonly Interactable[] = [];
 
-const APP: Record<VisitorApp, string> = {
-  desktop: '🖥️ Claude app',
-  cli: '⌨️ Terminal',
-  ide: '🧩 IDE',
-  other: '🤖 Claude Code',
-};
+const APP = labels<VisitorApp>({
+  desktop: 'desks.visitor.app.desktop',
+  cli: 'desks.visitor.app.cli',
+  ide: 'desks.visitor.app.ide',
+  other: 'desks.visitor.app.other',
+});
 
 interface VisitorView {
   id: string;
@@ -336,6 +337,8 @@ export function installVisitors(ctx: Ctx, parts: Pick<Parts, 'visitorWatch'>) {
     whoIsWhere();
   }
   store.on('visitors', sync);
+  // Their laptops' "waiting on you" (and the cards' bubbles) in the language now.
+  onLang(sync);
   // A worker hired at a visitor's desk, or a row of the back office walled up: it finds another, or goes back to the lobby.
   store.on('workers', sync);
   store.on('floorPlan', sync);
@@ -430,11 +433,11 @@ export function installVisitors(ctx: Ctx, parts: Pick<Parts, 'visitorWatch'>) {
     reach: 4,
     hint: (it) => {
       const v = store.visitors.visitors.find((x) => x.id === it.seatId);
-      if (!v) return { k: 'visitor', parts: [hintTitle('👋 A visitor')] };
-      const subs = v.subagentCount ? ` · ${v.subagentCount} subagent${v.subagentCount === 1 ? '' : 's'}` : '';
+      if (!v) return { k: 'visitor', parts: [hintTitle(t('desks.visitor.aVisitor'))] };
+      const subs = v.subagentCount ? ` · ${tn('desks.visitor.subagents', v.subagentCount)}` : '';
       // Watching is for admins (see visitor-watch).
       const admin = canWatch();
-      return { k: `visitor|${v.id}|${v.status}|${v.subagentCount}|${admin}`, parts: [hintTitle(`👋 ${v.title}`), aside(`${APP[v.app]} · ${v.folder}${subs}`), admin ? key('I', 'Watch') : ''] };
+      return { k: `visitor|${v.id}|${v.status}|${v.subagentCount}|${admin}`, parts: [hintTitle(`👋 ${v.title}`), aside(`${APP[v.app]} · ${ltrText(v.folder)}${subs}`), admin ? key('I', 'Watch') : ''] };
     },
     use: (it, k) => {
       if (k === 'E' && it.seatId && canWatch()) parts.visitorWatch.watch(it.seatId);

@@ -7,6 +7,7 @@ import type * as THREE from 'three';
 import type { GhIssue } from '../../../shared/protocol';
 import type { Ctx } from '../../core/context';
 import { aside, boardHint, hintTitle, key, onE } from '../../core/hint';
+import { onLang, t } from '../../i18n';
 import { store, type Topic } from '../../state';
 import { openBoard } from '../../ui/boards';
 import { inProgress } from '../../ui/github/progress';
@@ -47,6 +48,8 @@ export function installBoards(ctx: Ctx, deps: BoardsDeps) {
   function mountBoard(mesh: THREE.Mesh | undefined, texture: THREE.Texture, render: () => void, topics: Topic[]) {
     if (mesh) showOn(mesh, texture);
     for (const topic of topics) store.on(topic, render);
+    // Its words are drawn in the language now: a switch draws it again.
+    onLang(render);
     render();
   }
   function showOn(mesh: THREE.Mesh, texture: THREE.Texture) {
@@ -104,8 +107,8 @@ export function installBoards(ctx: Ctx, deps: BoardsDeps) {
     reach: 9,
     hint: () => {
       const aimedNote = deps.aimedNote();
-      if (aimedNote) return { k: String(aimedNote.number), parts: [hintTitle(clip(`📌 #${aimedNote.number} ${aimedNote.title}`, 60)), key('E', 'Take it'), key('O', 'Read it')] };
-      return issuesTex.hasNotes ? { k: 'notes', parts: [hintTitle('📌 Issues board'), key('E', 'Open'), aside('or point at a note to take it')] } : boardHint('📌 Issues board');
+      if (aimedNote) return { k: String(aimedNote.number), parts: [hintTitle(clip(`📌 #${aimedNote.number} ${aimedNote.title}`, 60)), key('E', t('desks.board.takeIt')), key('O', t('desks.board.readIt'))] };
+      return issuesTex.hasNotes ? { k: 'notes', parts: [hintTitle(t('desks.board.issues')), key('E', t('hud.open')), aside(t('desks.board.pointAtNote'))] } : boardHint(t('desks.board.issues'));
     },
     use: (_it, key, note) => {
       // A note on the issues board: E takes it straight off the cork, O opens it to read first.
@@ -116,19 +119,19 @@ export function installBoards(ctx: Ctx, deps: BoardsDeps) {
   });
   ctx.interactions.define('pulls', {
     reach: 9,
-    hint: () => boardHint('🔀 Pull request board'),
+    hint: () => boardHint(t('desks.board.pulls')),
     use: onE(() => openBoard('pulls', ctx.net, deps.boardActions())),
   });
   ctx.interactions.define('services', {
     reach: 9,
-    hint: () => boardHint('🌐 Services board'),
+    hint: () => boardHint(t('desks.board.services')),
     use: onE(() => openServices()),
   });
   ctx.interactions.define('queue', {
     reach: 9,
     hint: () => {
-      const n = store.queue.tasks.filter((t) => t.status !== 'done').length;
-      return { k: String(n), parts: [hintTitle(`📋 Task queue${n ? ` · ${n}` : ''}`), key('E', 'Open')] };
+      const n = store.queue.tasks.filter((task) => task.status !== 'done').length;
+      return { k: String(n), parts: [hintTitle(`${t('desks.board.queue')}${n ? ` · ${n}` : ''}`), key('E', t('hud.open'))] };
     },
     use: onE(() => deps.showQueue()),
   });

@@ -2,6 +2,7 @@
    the reset, panels and buttons, the small pieces many windows share, and the window (modal) frame.
    The office adds its HUD and loading screen (style.css); each window's own look sits next to its
    module in ui/ and comes in with it. */
+@import './arabic.css';
 
 :root {
   --ink: #2b2d42;
@@ -16,7 +17,7 @@
   --info: #5bc0eb;
   --shadow: 0 4px 0 var(--ink);
   --radius: 16px;
-  --font: 'Nunito', ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, sans-serif;
+  --font: 'Cairo', 'Nunito', ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -58,7 +59,7 @@ button { font-family: inherit; }
 .pill.lost { background: #ffb703; }
 .empty { color: var(--muted); font-size: 13px; font-weight: 600; }
 @keyframes pulse { 50% { transform: scale(1.08); } }
-.key { display: inline-block; min-width: 26px; padding: 1px 7px; margin-right: 5px; border-radius: 7px; background: var(--paper); color: var(--ink); text-align: center; font-weight: 900; box-shadow: 0 2px 0 #999; }
+.key { display: inline-block; min-width: 26px; padding: 1px 7px; margin-inline-end: 5px; border-radius: 7px; background: var(--paper); color: var(--ink); text-align: center; font-weight: 900; box-shadow: 0 2px 0 #999; }
 
 #toasts { position: absolute; top: 72px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none !important; }
 .toast { background: var(--paper); border: 3px solid var(--ink); border-radius: 12px; padding: 8px 14px; font-weight: 800; font-size: 14px; box-shadow: var(--shadow); animation: toast-in .25s ease-out; }
@@ -83,7 +84,7 @@ button { font-family: inherit; }
 .modal label { font-weight: 800; font-size: 14px; display: block; margin-bottom: 6px; }
 .close { width: 34px; height: 34px; padding: 0; justify-content: center; }
 /* The ✕ openModal gives a window without a header of its own. */
-.close.corner { position: absolute; top: 10px; right: 10px; z-index: 1; }
+.close.corner { position: absolute; top: 10px; inset-inline-end: 10px; z-index: 1; }
 
 /* Pieces several windows share: button rows, the notes under a setting, an input with its buttons,
    color swatches, a list of things to click (services, the jukebox, the bar), a spinner and a when. */
@@ -121,8 +122,8 @@ a.when:hover { text-decoration: underline; }
 .provider-model input:invalid { border-color: var(--bad); }
 .provider-summary .btn { padding: 3px 9px; font-size: 12px; border-width: 2px; border-radius: 9px; box-shadow: 0 2px 0 var(--ink); }
 .charsel-opts label { margin: 14px 0 8px; }
-.col-search input[type=text] { font-size: 13px; border-width: 2px; border-radius: 9px; padding: 5px 26px 5px 9px; }
+.col-search input[type=text] { font-size: 13px; border-width: 2px; border-radius: 9px; padding-block: 5px; padding-inline: 9px 26px; }
 .gh-label-edit { padding: 1px 9px; font-size: 12px; box-shadow: 0 2px 0 var(--ink); }
 .pd-side input[type=text] { width: 100%; font: inherit; font-size: 13px; border: 2px solid var(--ink); border-radius: 10px; padding: 5px 9px; background: #fff; outline: none; }
-.elevator .dir-change { margin-left: 6px; padding: 1px 8px; font-size: 12px; border-width: 2px; border-radius: 9px; box-shadow: 0 2px 0 var(--ink); vertical-align: baseline; }
+.elevator .dir-change { margin-inline-start: 6px; padding: 1px 8px; font-size: 12px; border-width: 2px; border-radius: 9px; box-shadow: 0 2px 0 var(--ink); vertical-align: baseline; }
 .meeting-field label { margin: 0; }

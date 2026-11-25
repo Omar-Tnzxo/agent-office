@@ -8,6 +8,9 @@ import { Confetti } from './world/confetti';
 import { djFrame } from './dnb';
 import { Voice } from './voice';
 import { $ } from './ui/dom';
+import { lang, t } from './i18n';
+import { fontsReady } from './i18n/canvas';
+import { installPageLanguage } from './i18n/dom';
 import { openCharacter } from './ui/character';
 import { elevatorPanelOpen } from './ui/elevator';
 import { onModelsProgress, preloadModels } from './world/models';
@@ -69,6 +72,8 @@ import { installWhiteboard } from './features/whiteboard';
 import { installWorkerActions } from './features/workers/actions';
 import { installWorkerViews } from './features/workers/views';
 
+// The page in the viewer's language (⚙️ Settings), right to left in Arabic, before anything shows.
+installPageLanguage();
 // The loading screen stays up until there's an office to see (see boot and whoami at the end).
 const loading = loadingScreen(onModelsProgress);
 // Came here from the 2D view's 🏢 3D button: it isn't offered straight back.
@@ -78,8 +83,9 @@ if (chose3d) history.replaceState(null, '', location.pathname);
 const offer2d = (why: 'touch' | 'slow') => chose3d || offerLite(why);
 // A phone can't walk around the office: the 2D view is made for it.
 if (touchOnly()) offer2d('touch');
-// The models made in Blender, loaded before the world they're in is built (see world/models.ts).
-await preloadModels();
+// The models made in Blender, loaded before the world they're in is built (see world/models.ts), and
+// in Arabic, the Arabic font before the first name tag or sign is drawn on a canvas (see i18n/canvas.ts).
+await Promise.all([preloadModels(), lang() === 'ar' ? fontsReady() : undefined]);
 
 // ---- The context every part of the office plugs into (see core/context.ts) ----------------------------
 // Built before the parts it hands out, which are there by the time anything asks for them. Every part
@@ -227,8 +233,8 @@ void whoami().then(() => {
       });
     });
     loading.until([
-      { say: 'Knocking on the door', done: welcomed },
-      { say: 'Fetching the dog', done: parts.dog.firstReady },
+      { say: t('hud.loading.knocking'), done: welcomed },
+      { say: t('hud.loading.dog'), done: parts.dog.firstReady },
     ]);
   } else {
     // Pick a character first (people from before there was a choice keep their name and color).

@@ -128,12 +128,15 @@ export class Compass {
     const hgt = window.innerHeight;
     const bar = document.querySelector('.topbar')?.getBoundingClientRect();
     const side = document.querySelector('.side')?.getBoundingClientRect();
-    // Never so tight the marks crowd the middle of the screen.
+    // The side panels sit on the right, or on the left on a right-to-left page: the marks keep clear
+    // of whichever side they're on. Never so tight the marks crowd the middle of the screen.
+    const panelRight = !!side?.width && side.left > w / 2;
+    const panelLeft = !!side?.width && !panelRight;
     this.box = {
       top: Math.min(Math.max(MARGIN, (bar?.bottom ?? 0) + MARGIN), hgt / 2 - 60),
-      right: Math.max(side?.width ? side.left - MARGIN : w - MARGIN, w / 2 + 60),
+      right: Math.max(panelRight ? side!.left - MARGIN : w - MARGIN, w / 2 + 60),
       bottom: Math.max(hgt - 130, hgt / 2 + 60),
-      left: MARGIN,
+      left: Math.min(panelLeft ? side!.right + MARGIN : MARGIN, w / 2 - 60),
     };
   }
 }

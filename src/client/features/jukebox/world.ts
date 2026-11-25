@@ -3,6 +3,8 @@ import { JUKEBOX } from '../../../shared/layout';
 import { mesh, roundedBox, textSprite, toon, toonUnique } from '../../world/toon';
 import type { Collider, Interactable } from '../../world/types';
 import type { Fixture } from '../../world/office/fixture';
+import { t } from '../../i18n';
+import { dirFor, FONT } from '../../i18n/canvas';
 
 // The lounge jukebox: a cherry-red cabinet with a rounded top, a neon tube round its face that
 // glows to the beat while it plays, a little display saying what's on, and notes floating up.
@@ -13,6 +15,8 @@ export interface JukeboxView {
   interactable: Interactable;
   /** What the display says, and whether the lights are on. */
   show(on: boolean, title: string): void;
+  /** Draws the display again, in the page's language now. */
+  repaint(): void;
   /** `beat` runs 1 → 0 after each beat while music plays (see OfficeSound.beat). */
   update(t: number, dt: number, beat: number): void;
 }
@@ -89,16 +93,23 @@ export function buildJukebox(): JukeboxView {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillStyle = on ? '#ffd166' : '#8d99ae';
-    g.font = '900 44px Nunito, ui-rounded, system-ui, sans-serif';
-    g.fillText(on ? '♪ NOW PLAYING ♪' : 'JUKEBOX', 256, 70);
+    g.font = `900 44px ${FONT}`;
+    const head = t(on ? 'toys.juke.nowPlaying' : 'toys.juke.sign');
+    dirFor(g, head);
+    g.fillText(head, 256, 70);
     g.fillStyle = on ? '#ffffff' : '#8d99ae';
     let size = 58;
-    const text = on ? title : 'press E to play';
-    do g.font = `800 ${size--}px Nunito, ui-rounded, system-ui, sans-serif`;
+    const text = on ? title : t('toys.juke.pressE');
+    dirFor(g, text);
+    do g.font = `800 ${size--}px ${FONT}`;
     while (g.measureText(text).width > 470 && size > 26);
     g.fillText(text, 256, 160);
     tex.needsUpdate = true;
+    painted = title;
   };
+  /** The title on the display now, to draw it again in another language. */
+  let painted = '';
+  const repaint = () => paint(painted);
 
   const show = (playing: boolean, title: string) => {
     const k = `${playing}|${title}`;
@@ -128,7 +139,7 @@ export function buildJukebox(): JukeboxView {
     });
   };
 
-  return { group, collider, interactable, show, update };
+  return { group, collider, interactable, show, repaint, update };
 }
 
 declare module '../../world/types' {

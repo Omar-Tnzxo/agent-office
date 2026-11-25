@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MEETING_BOARD, MEETING_LAPTOP, MEETING_ROOM, MEETING_SEATS, MEETING_TABLE, deskSeat, type DeskDef } from '../../../shared/layout';
 import type { NightParts } from '../outside';
-import { mesh, roundedBox, textPlane, toon } from '../toon';
+import { mesh, phrasePlane, roundedBox, toon } from '../toon';
 import type { Collider, DeskView, Interactable } from '../types';
 import type { Fixture } from './fixture';
 import { PALETTE, box, glassPane } from './materials';
@@ -109,7 +109,7 @@ export function buildMeetingRoom(group: THREE.Group, colliders: Collider[], inte
       for (const [leaf, x0] of leaves) leaf.position.x = x0 + Math.sign(x0 - dx) * e * (half - 0.06);
     },
   });
-  const label = textPlane('🤝 Meeting room', { bg: '#2b2d42', color: '#fffaf3', size: 56, border: '#fffaf3' });
+  const label = phrasePlane('world.meetingRoom', { bg: '#2b2d42', color: '#fffaf3', size: 56, border: '#fffaf3' });
   label.scale.multiplyScalar(0.62);
   // In front of the glass wall's frame (out to R.minZ - 0.08) and the sliding leaves (to R.minZ - 0.11),
   // which it runs across once its text is wider than the door.

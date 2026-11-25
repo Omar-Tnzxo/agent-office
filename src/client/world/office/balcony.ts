@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ASHTRAY, BALCONY, EXIT_STAIRS, SLAB, STREET_Y } from '../../../shared/layout';
 import { bulb, type NightParts } from '../outside';
-import { mergeByMaterial, mesh, roundedBox, textPlane, toon } from '../toon';
+import { mergeByMaterial, mesh, phrasePlane, roundedBox, toon } from '../toon';
 import type { Collider, Interactable } from '../types';
 import type { Fixture } from './fixture';
 import { PALETTE, box, floorTexture, glassPane } from './materials';
@@ -159,7 +159,7 @@ export function buildBalcony(group: THREE.Group, colliders: Collider[], interact
   interactables.push(it);
   tray.userData.interact = it;
 
-  const sign = textPlane('🚬 Smoke break', { bg: '#2b2d42', color: '#fffaf3', size: 56, border: '#fffaf3' });
+  const sign = phrasePlane('world.smokeBreak', { bg: '#2b2d42', color: '#fffaf3', size: 56, border: '#fffaf3' });
   sign.scale.multiplyScalar(0.8);
   sign.position.set(-6.5, 2.2, minZ + 0.02);
   group.add(sign);

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { BOARD_KEYS, type BoardKey } from '../../../shared/maps';
 import type { Interactable } from '../types';
-import { mesh, textPlane } from '../toon';
+import { mesh, phrasePlane } from '../toon';
+import { boardWords } from '../words';
 import { box, type Kit } from './kit';
 
 /** The four boards: big displays on the walls, a line of light round each and its name over it. */
@@ -22,7 +23,7 @@ export function buildBoards(kit: Kit): Record<BoardKey, THREE.Mesh> {
     face.position.z = 0.07;
     g.add(face);
     faces[k] = face;
-    const label = textPlane(bd.label, { bg: '#0f1a26', color: '#e6f6ff', size: 64, border: '#3a5a78' });
+    const label = phrasePlane(boardWords(bd.label), { bg: '#0f1a26', color: '#e6f6ff', size: 64, border: '#3a5a78' });
     label.scale.multiplyScalar(1.1);
     label.position.set(0, bd.height / 2 + 0.55, 0.06);
     g.add(label);

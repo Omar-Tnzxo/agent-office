@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { LOFT, STAIRS, WALL_T } from '../../../shared/layout';
-import { mesh, roundedBox, textPlane, toon } from '../toon';
+import { mesh, phrasePlane, roundedBox, toon } from '../toon';
 import type { Collider, Interactable } from '../types';
 import type { Fixture } from './fixture';
 import { PALETTE, box, floorTexture, glassPane, type Looks } from './materials';
@@ -126,7 +126,7 @@ export function buildLoft(group: THREE.Group, colliders: Collider[], interactabl
   const screen = mesh(new THREE.PlaneGeometry(0.8, 0.45), new THREE.MeshBasicMaterial({ color: '#4cc9f0' }), 0, 1.18, -0.165, false);
   desk.add(screen);
   desk.add(mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.12, 10), toon('#ffd166'), 0.9, 0.89, 0.15));
-  const plate = textPlane('👑 BOSS', { bg: '#ffd166', size: 48 });
+  const plate = phrasePlane('world.boss', { bg: '#ffd166', size: 48 });
   plate.scale.multiplyScalar(0.55);
   plate.position.set(0, 0.5, -0.55);
   plate.rotation.y = Math.PI;
@@ -195,12 +195,12 @@ export function buildLoft(group: THREE.Group, colliders: Collider[], interactabl
   group.add(lamp);
 
   // Signs: one on the back wall inside, one over the glass for everyone downstairs.
-  const inside = textPlane('👑 Boss Office', { bg: '#fffaf3', size: 64 });
+  const inside = phrasePlane('world.bossOffice', { bg: '#fffaf3', size: 64 });
   inside.scale.multiplyScalar(0.8);
   inside.position.set(maxX - 3, floorY + 1.9, maxZ - 0.04);
   inside.rotation.y = Math.PI;
   group.add(inside);
-  const outside = textPlane('👑 Boss Office', { bg: '#2b2d42', color: '#fffaf3', size: 64, border: '#fffaf3' });
+  const outside = phrasePlane('world.bossOffice', { bg: '#2b2d42', color: '#fffaf3', size: 64, border: '#fffaf3' });
   outside.scale.multiplyScalar(1.4);
   // In front of the roof's trim (minZ - 0.04 to minZ), or the trim hides the sign's lower half.
   outside.position.set(cx, roofY + 0.2, minZ - 0.07);

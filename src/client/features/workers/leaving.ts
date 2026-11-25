@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BALCONY, PARACHUTE } from '../../../shared/layout';
 import { walkOff, type Pt } from '../../../shared/nav';
+import { t, type TextKey } from '../../i18n';
 import type { Worker } from '../../world/character';
 import type { Laptop } from './laptop';
 import type { DeskView } from '../../world/types';
@@ -20,7 +21,7 @@ const GONE = 0.6;
 /** Seconds for a shut laptop to shrink away. */
 const LAPTOP_GONE = 0.3;
 
-const FAREWELLS = ['😢 bye, everyone', '🥲 it was fun', '📦 welp', '😞 cleaning out my desk', '🥺 but my PR…', '😶 security is walking me out'];
+const FAREWELLS: TextKey[] = ['desks.bye.everyone', 'desks.bye.fun', 'desks.bye.welp', 'desks.bye.cleaning', 'desks.bye.myPr', 'desks.bye.security'];
 
 // Leaving a floor with no exit door, by parachute off the balcony.
 /** Seconds climbing up onto the railing, then teetering on it. */
@@ -37,7 +38,7 @@ const TURN = 1.2;
 /** Seconds for the chute to pop open, and to crumple on the ground once it's down. */
 const POP = 0.45;
 const CRUMPLE = 1.3;
-const JUMPS = ['🪂 geronimo!', '🪂 see ya!', '🪂 wheee!', '🪂 bye bye!', '🪂 I quit!'];
+const JUMPS: TextKey[] = ['desks.jump.geronimo', 'desks.jump.seeYa', 'desks.jump.wheee', 'desks.jump.byeBye', 'desks.jump.quit'];
 const CANOPIES = ['#ef476f', '#ffd166', '#06d6a0', '#118ab2', '#8338ec', '#ff8a5b'];
 
 /** Seen from below too, so both sides of the fabric. */
@@ -177,7 +178,7 @@ export class Departures {
     if (facing) model.root.rotation.set(0, new THREE.Euler().setFromQuaternion(facing, 'YXZ').y, 0);
     else model.root.rotation.set(0, desk.def.rotY + Math.PI, 0);
     model.root.scale.setScalar(scale);
-    model.leave(pick(FAREWELLS));
+    model.leave(t(pick(FAREWELLS)));
     const chair = desk.def.beanbag || from ? null : desk.chair;
     const { way, chute: up } = this.ways().home(desk.def, from);
     const chute: Chute | null = up ? { phase: 'walk', t: 0, color: pick(CANOPIES), canopy: null, from: new THREE.Vector3(), vel: new THREE.Vector3(), land: new THREE.Vector3(), angle: 0, radius: 0, height: 1 } : null;
@@ -321,7 +322,7 @@ export class Departures {
       if (p < 1) return true;
       c.phase = 'teeter';
       c.t = 0;
-      l.model.say(pick(JUMPS));
+      l.model.say(t(pick(JUMPS)));
       return true;
     }
     if (c.phase === 'teeter') {

@@ -4,7 +4,7 @@
 .column { flex: 1; min-width: 220px; display: flex; flex-direction: column; background: rgba(255, 250, 243, .55); border: 3px solid var(--ink); border-radius: 14px; overflow: hidden; }
 .column h4 { margin: 0; font-size: 14px; font-weight: 900; background: var(--paper); border-bottom: 3px solid var(--ink); }
 /* Click a column's header to filter it by label. */
-.col-head { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.col-head { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border: 0; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .col-head:hover, .col-head[aria-expanded="true"] { background: var(--paper-2); }
 .col-head:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
 .col-count { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
@@ -14,10 +14,10 @@
 /* Each column's box for narrowing it by title. */
 .col-search { position: relative; flex-shrink: 0; background: var(--paper); border-bottom: 3px solid var(--ink); padding: 6px 8px; }
 /* The box itself is sized in styles/base.css, after the frame's text box rule. */
-.col-search-clear { position: absolute; top: 50%; right: 14px; transform: translateY(-50%); border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; padding: 0 2px; }
+.col-search-clear { position: absolute; top: 50%; inset-inline-end: 14px; transform: translateY(-50%); border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; padding: 0 2px; }
 .col-search-clear:hover { color: var(--ink); }
 .col-active, .col-filter { background: var(--paper); border-bottom: 3px solid var(--ink); padding: 7px 10px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.col-clear { margin-left: auto; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; padding: 0 2px; }
+.col-clear { margin-inline-start: auto; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; padding: 0 2px; }
 .col-clear:hover { color: var(--ink); }
 .col-filter { flex-direction: column; align-items: stretch; gap: 8px; max-height: 45%; flex-shrink: 0; }
 .col-labels { display: flex; flex-wrap: wrap; gap: 5px; overflow: auto; min-height: 0; }
@@ -39,7 +39,7 @@
 .desk-link { display: inline-flex; align-items: center; gap: 5px; padding: 1px 7px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; color: var(--ink); font-weight: 800; white-space: nowrap; }
 .desk-link::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--dot, var(--accent)); border: 1px solid var(--ink); }
 /* A card's 🏷️ (the label picker) shows on hover or focus; touch screens always show it. */
-.card-labels { position: absolute; top: 5px; right: 5px; width: 26px; height: 26px; padding: 0; display: grid; place-items: center; font-size: 13px; background: var(--paper); border: 2px solid var(--ink); border-radius: 8px; box-shadow: 0 2px 0 var(--ink); cursor: pointer; opacity: 0; transition: opacity .1s; }
+.card-labels { position: absolute; top: 5px; inset-inline-end: 5px; width: 26px; height: 26px; padding: 0; display: grid; place-items: center; font-size: 13px; background: var(--paper); border: 2px solid var(--ink); border-radius: 8px; box-shadow: 0 2px 0 var(--ink); cursor: pointer; opacity: 0; transition: opacity .1s; }
 .card:hover .card-labels, .card:focus-within .card-labels { opacity: 1; }
 .card-labels:hover { background: var(--paper-2); }
 @media (hover: none) { .card-labels { opacity: 1; } }

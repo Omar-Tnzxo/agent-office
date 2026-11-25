@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { FONT } from '../../i18n/canvas';
 
 // The beacon over a worker that needs you: a red pin with a "!" above its card, a pillar of light
 // going up from its desk, and rings spreading out over the floor around it. It's there to be seen
@@ -45,7 +46,7 @@ function pinPicture(): THREE.CanvasTexture {
   c.strokeStyle = INK;
   c.stroke();
   c.fillStyle = '#ffffff';
-  c.font = '900 150px Nunito, ui-rounded, system-ui, sans-serif';
+  c.font = `900 150px ${FONT}`;
   c.textAlign = 'center';
   c.textBaseline = 'middle';
   c.fillText('!', cx, cy + 8);

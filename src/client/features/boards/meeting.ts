@@ -1,10 +1,18 @@
 import * as THREE from 'three';
 import { MEETING_PATTERNS, meetingSpend, meetingStage, meetingSummary } from '../../../shared/meetings';
 import type { Meeting, MeetingState } from '../../../shared/protocol';
+import { t, tn } from '../../i18n';
+import { dirFor, FONT } from '../../i18n/canvas';
+import { serverText } from '../../i18n/server';
 
-const FONT = 'Nunito, ui-rounded, system-ui, sans-serif';
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
 const INK = '#2b2d42';
+
+/** Draws `text` at (x, y) in its own reading direction. */
+function say(g: CanvasRenderingContext2D, text: string, x: number, y: number) {
+  dirFor(g, text);
+  g.fillText(text, x, y);
+}
 
 function canvasTexture(w: number, h: number): { canvas: HTMLCanvasElement; g: CanvasRenderingContext2D; texture: THREE.CanvasTexture } {
   const canvas = document.createElement('canvas');
@@ -18,6 +26,7 @@ function canvasTexture(w: number, h: number): { canvas: HTMLCanvasElement; g: Ca
 
 /** Breaks text into lines no wider than `maxW`, cutting words too long for a line of their own. */
 function wrap(g: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+  dirFor(g, text);
   const lines: string[] = [];
   let cur = '';
   for (const word of text.split(/\s+/)) {
@@ -70,10 +79,10 @@ export class MeetingBoardTexture {
       g.fillStyle = INK;
       g.textAlign = 'center';
       g.font = `900 64px ${FONT}`;
-      g.fillText('🤝 The meeting room is free', W / 2, H / 2 - 10);
+      say(g, t('desks.meetingBoard.free'), W / 2, H / 2 - 10);
       g.font = `700 36px ${FONT}`;
       g.fillStyle = '#5c5f73';
-      g.fillText('Press E at the table to call a meeting: whatever it writes shows up here.', W / 2, H / 2 + 50);
+      say(g, t('desks.meetingBoard.freeHint'), W / 2, H / 2 + 50);
       g.textAlign = 'left';
       this.texture.needsUpdate = true;
       return;
@@ -84,10 +93,10 @@ export class MeetingBoardTexture {
     g.fillRect(0, 0, W, 70);
     g.fillStyle = INK;
     g.font = `800 36px ${MONO}`;
-    g.fillText(`📄 ${m.output}`, 24, 48);
+    say(g, `📄 ${m.output}`, 24, 48);
     g.font = `800 34px ${FONT}`;
     g.textAlign = 'right';
-    g.fillText(`${p.icon} ${p.label} · ${m.status === 'running' ? meetingStage(m) : m.status === 'done' ? '✅ done' : '⛔ stopped'}`, W - 24, 48);
+    say(g, `${p.icon} ${p.label} · ${m.status === 'running' ? meetingStage(m) : t(m.status === 'done' ? 'desks.meetingBoard.done' : 'desks.meetingBoard.stopped')}`, W - 24, 48);
     g.textAlign = 'left';
 
     const text = (m.preview ?? '').replace(/\r/g, '');
@@ -95,7 +104,9 @@ export class MeetingBoardTexture {
       g.fillStyle = '#8d99ae';
       g.font = `800 44px ${FONT}`;
       g.textAlign = 'center';
-      g.fillText(m.status === 'running' ? `Nothing written yet: ${speaking(m).join(', ') || 'the table'} ${speaking(m).length === 1 ? 'is' : 'are'} on it` : m.reason ? `⛔ ${m.reason}` : 'Nothing was written', W / 2, H / 2 + 30);
+      const who = speaking(m);
+      const note = m.status === 'running' ? tn('desks.meetingBoard.nothingYet', who.length, { who: who.join(', ') || t('desks.meetingBoard.theTable') }) : m.reason ? `⛔ ${serverText(m.reason)}` : t('desks.meetingBoard.nothingWritten');
+      say(g, note, W / 2, H / 2 + 30);
       g.textAlign = 'left';
       this.texture.needsUpdate = true;
       return;
@@ -117,7 +128,7 @@ export class MeetingBoardTexture {
       }
       for (const l of wrap(g, line, maxW)) {
         if (y > H - 14) break;
-        g.fillText(l, x, y);
+        say(g, l, x, y);
         y += size * 1.25;
       }
     }
@@ -151,7 +162,7 @@ export class MeetingSignTexture {
       g.font = font;
       g.fillStyle = color;
       for (const l of wrap(g, text, W - 2 * pad).slice(0, max)) {
-        g.fillText(l, pad, y);
+        say(g, l, pad, y);
         y += lh;
       }
       return y;
@@ -160,15 +171,15 @@ export class MeetingSignTexture {
     g.fillRect(0, 0, W, H);
     g.textBaseline = 'alphabetic';
     // A strip across the top says whether the room is taken.
-    const [strip, label] = !m ? ['#06d6a0', '● FREE'] : m.status === 'running' ? ['#ffd166', '● IN A MEETING'] : m.status === 'done' ? ['#9ef01a', '✅ DONE'] : ['#ffb3c1', '⛔ STOPPED'];
+    const [strip, label] = !m ? ['#06d6a0', t('desks.meetingSign.free')] : m.status === 'running' ? ['#ffd166', t('desks.meetingSign.inMeeting')] : m.status === 'done' ? ['#9ef01a', t('desks.meetingSign.done')] : ['#ffb3c1', t('desks.meetingSign.stopped')];
     g.fillStyle = strip;
     g.fillRect(0, 0, W, 78);
     g.fillStyle = INK;
     g.font = `900 38px ${FONT}`;
-    g.fillText(label, pad, 53);
+    say(g, label, pad, 53);
     if (!m) {
-      let y = lines('🤝 Meeting room', `900 50px ${FONT}`, '#fffaf3', 160, 2, 58);
-      lines('Press E at the table to call a meeting: a debate, lead & team, map-reduce, red / blue or a review panel.', `700 32px ${FONT}`, '#e9ecef', y + 30, 8, 42);
+      const y = lines(t('desks.meetingSign.room'), `900 50px ${FONT}`, '#fffaf3', 160, 2, 58);
+      lines(t('desks.meetingSign.roomHint'), `700 32px ${FONT}`, '#e9ecef', y + 30, 8, 42);
       this.texture.needsUpdate = true;
       return;
     }
@@ -181,7 +192,7 @@ export class MeetingSignTexture {
       const who = speaking(m);
       if (who.length) lines(`💬 ${who.join(', ')}`, `700 30px ${FONT}`, '#bde0fe', y + 8, 3, 38);
       // What's been spent, along the bottom.
-      if (m.tokens) lines(`${meetingSpend(m)} so far`, `800 30px ${FONT}`, '#fffaf3', H - 40, 1, 38);
+      if (m.tokens) lines(t('desks.meetingSign.soFar', { spend: meetingSpend(m) }), `800 30px ${FONT}`, '#fffaf3', H - 40, 1, 38);
     } else {
       // The summary line after the pattern, which is up top already.
       lines(meetingSummary(m).split(' · ').slice(1).join(' · '), `700 30px ${FONT}`, '#e9ecef', y, Math.floor((H - y) / 38), 38);

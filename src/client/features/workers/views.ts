@@ -15,6 +15,9 @@ import type { CoreState } from '../../core/ctx';
 import { pastTheWing, seatBuilt } from '../../core/floors';
 import { aside, hintTitle, key, onE } from '../../core/hint';
 import { noOutline } from '../../core/outline';
+import { STATION_INFO } from '../../core/stations';
+import { ltrText, onLang, t } from '../../i18n';
+import { serverText } from '../../i18n/server';
 import type { Parts } from '../../core/parts';
 import { waitingInOrder } from '../../nextup';
 import { waitingOnSomeone } from '../../notify';
@@ -168,8 +171,8 @@ export function installWorkerViews(ctx: Ctx, core: CoreState, parts: WorkerViews
       const deskDef = plan().byId.get(w.deskId);
       // Keys clack while it types, not while it reads, watches its tests or browses.
       if (deskDef) sound.setTyping(w.id, deskDef.x, deskDef.z, w.status === 'working' && (!w.action || w.action === 'edit'));
-      const again = w.kind === 'shell' ? 'restart' : 'resume';
-      v.laptop.setPlaceholder(w.lost ? `🌿 ${w.name}'s worktree was deleted — press E to fix it` : w.status === 'offline' ? `💤 ${w.name} is asleep — press R to ${again}` : w.status === 'exited' ? `${w.name} exited` : 'booting…');
+      const asleep = w.kind === 'shell' ? 'desks.laptop.asleepRestart' : 'desks.laptop.asleepResume';
+      v.laptop.setPlaceholder(t(w.lost ? 'desks.laptop.lost' : w.status === 'offline' ? asleep : w.status === 'exited' ? 'desks.laptop.exited' : 'desks.laptop.booting', { name: w.name }));
     }
     for (const [id, v] of workerViews) {
       if (store.workers.has(id)) continue;
@@ -264,10 +267,11 @@ export function installWorkerViews(ctx: Ctx, core: CoreState, parts: WorkerViews
     if (i < 0) return undefined;
     const role = m.seats[i].role;
     const p = MEETING_PATTERNS[m.pattern];
-    if (m.status !== 'running') return { name: `${role} · ${p.icon} ${p.label}`, summary: m.status === 'done' ? `✅ The meeting wrote ${m.output}` : `⛔ Stopped: ${m.reason ?? 'stopped'}` };
-    const t = m.turns.find((x) => x.seat === i);
-    if (!t || t.state === 'done') return { name: `👂 ${role} · round ${m.round} of ${m.rounds}`, summary: t ? 'Part written: listening' : 'Listening' };
-    return { name: `💬 ${role} · round ${m.round} of ${m.rounds}`, summary: t.state === 'working' ? t.doing : `${t.doing} (up next)` };
+    if (m.status !== 'running') return { name: `${role} · ${p.icon} ${p.label}`, summary: m.status === 'done' ? t('desks.meetingCard.wrote', { output: ltrText(m.output) }) : t('desks.meetingCard.stopped', { reason: m.reason ? serverText(m.reason) : t('desks.meetingCard.stoppedReason') }) };
+    const turn = m.turns.find((x) => x.seat === i);
+    const round = { role, round: m.round, rounds: m.rounds };
+    if (!turn || turn.state === 'done') return { name: t('desks.meetingCard.listeningRound', round), summary: t(turn ? 'desks.meetingCard.partWritten' : 'desks.meetingCard.listening') };
+    return { name: t('desks.meetingCard.speakingRound', round), summary: turn.state === 'working' ? turn.doing : t('desks.meetingCard.upNext', { doing: turn.doing }) };
   }
 
   /**
@@ -353,8 +357,15 @@ export function installWorkerViews(ctx: Ctx, core: CoreState, parts: WorkerViews
     reach: 8,
     hint: () => {
       const level = store.floorPlan.wing;
-      if (level >= WING.rows) return { k: 'full', parts: [hintTitle('🏢 Back office'), aside('built all the way out'), key('E', 'Wall a row up')] };
-      return { k: String(level), parts: [hintTitle(level ? '🚧 Room to grow' : '🚧 Room to grow through the wall'), aside(level ? `${level} of ${WING.rows} rows built` : 'the office can get bigger here'), key('E', level ? 'Another row: 2 more desks' : 'Knock through: 2 more desks')] };
+      if (level >= WING.rows) return { k: 'full', parts: [hintTitle(t('desks.expand.full')), aside(t('desks.expand.fullAside')), key('E', t('desks.expand.wallUp'))] };
+      return {
+        k: String(level),
+        parts: [
+          hintTitle(t(level ? 'desks.expand.grow' : 'desks.expand.growWall')),
+          aside(level ? t('desks.expand.rowsBuilt', { level, rows: WING.rows }) : t('desks.expand.canGrow')),
+          key('E', t(level ? 'desks.expand.anotherRow' : 'desks.expand.knockThrough')),
+        ],
+      };
     },
     use: onE(() => openExpand(net)),
   });
@@ -369,6 +380,15 @@ export function installWorkerViews(ctx: Ctx, core: CoreState, parts: WorkerViews
   };
   store.on('pulls', paintPrs);
   store.on('queue', paintPrs);
+  // A switch of language: the cards over the workers' heads, their laptops' placeholders and the board
+  // agents' offers are drawn again in it (the bubbles' keys carry the language, see worker-badges.ts).
+  onLang(() => {
+    syncWorkers();
+    for (const a of parts.worlds.idleAgents()) {
+      const kind = a.view.def.station;
+      if (kind) a.model.setTask({ name: STATION_INFO[kind].offer, summary: STATION_INFO[kind].does });
+    }
+  });
   store.on('workers', renderUsage);
 
   /**

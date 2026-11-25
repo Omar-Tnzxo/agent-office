@@ -3,6 +3,7 @@ import './litesuggest.css';
 // with, or on a computer where frames come slowly (see framerate.ts).
 
 import { h } from './dom';
+import { t } from '../i18n';
 
 /** Said to stay in 3D: this browser isn't offered the 2D view again (it's in the ☰ menu). */
 const DECLINED_KEY = 'agent-office.lite-declined';
@@ -26,16 +27,13 @@ let offered = false;
 export function offerLite(why: 'touch' | 'slow') {
   if (offered || declined()) return;
   offered = true;
-  const say =
-    why === 'touch'
-      ? '📱 On a phone? The 2D view is made for it: every worker and how it’s doing, its terminal, and the boards.'
-      : '🐢 The 3D office is running slowly on this computer. The 2D view has the workers, their terminals and the boards, without the 3D.';
-  const stay = h('button.btn', { type: 'button' }, 'Stay in 3D');
+  const say = t(why === 'touch' ? 'panels.lite.touch' : 'panels.lite.slow');
+  const stay = h('button.btn', { type: 'button' }, t('panels.lite.stay'));
   const el = h(
     'div.lite-offer.panel',
-    { role: 'dialog', 'aria-label': 'Try the 2D view' },
+    { role: 'dialog', 'aria-label': t('panels.lite.label') },
     h('p', {}, say),
-    h('div.lite-offer-btns', {}, h('a.btn.primary', { href: '/lite' }, 'Open the 2D view'), stay),
+    h('div.lite-offer-btns', {}, h('a.btn.primary', { href: '/lite' }, t('panels.lite.open')), stay),
   );
   stay.addEventListener('click', () => {
     try {

@@ -7,7 +7,8 @@ import { NavGrid, type Pt } from '../../../shared/nav';
 // the modules make as they load keep their order.
 import { buildEscort, buildHerald } from './people';
 import type { Interactable } from '../types';
-import { mergeByMaterial, textPlane } from '../toon';
+import { t } from '../../i18n';
+import { mergeByMaterial, phrasePlane } from '../toon';
 import type { World } from '../world';
 import { buildAirlock } from './airlock';
 import { buildBoards } from './boards';
@@ -91,7 +92,8 @@ export function buildStation(plan: MapPlan): World {
       nameplate = null;
     }
     if (!name) return;
-    nameplate = textPlane(`🛰️ ${name.toUpperCase()} STATION`, { bg: '#0f1a26', color: '#e6f6ff', border: `#${kit.mats.accent.color.getHexString()}`, size: 64 });
+    const upper = name.toUpperCase();
+    nameplate = phrasePlane(() => t('world.station.name', { name: upper }), { bg: '#0f1a26', color: '#e6f6ff', border: `#${kit.mats.accent.color.getHexString()}`, size: 64 });
     nameplate.scale.multiplyScalar(1.5);
     // On the wall behind the chair, facing down the deck.
     const [bx, bz] = [-Math.sin(nameAt.rotY), -Math.cos(nameAt.rotY)];

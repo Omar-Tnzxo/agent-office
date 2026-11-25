@@ -3,6 +3,9 @@ import { FRAMES, FRAME_BORDER, WALLS, frameRect, wallPose, wallTop, type Decorat
 import { FLOOR, LOFT } from '../../../shared/layout';
 import type { Interactable } from '../../world/types';
 import { toon } from '../../world/toon';
+import { onLang, t, type TextKey } from '../../i18n';
+import { dirFor, FONT } from '../../i18n/canvas';
+import { serverText } from '../../i18n/server';
 
 // ---- Pictures -------------------------------------------------------------------------------------
 
@@ -30,12 +33,12 @@ async function fetchPicture(url: string): Promise<Picture> {
   try {
     res = await fetch(imageUrl(url));
   } catch {
-    throw new Error("Couldn't reach the office to load that image");
+    throw new Error(t('toys.hang.unreachable'));
   }
   if (!res.ok) {
-    let error = `The office couldn't load that image (${res.status})`;
+    let error = t('toys.hang.cantLoad', { status: String(res.status) });
     try {
-      error = (await res.json()).error ?? error;
+      error = serverText((await res.json()).error ?? error);
     } catch {
       // not JSON
     }
@@ -60,7 +63,7 @@ async function fetchPicture(url: string): Promise<Picture> {
     return { url, texture, aspect: iw / ih, src };
   } catch {
     URL.revokeObjectURL(src);
-    throw new Error("Your browser can't show that image");
+    throw new Error(t('toys.hang.cantShow'));
   }
 }
 
@@ -106,27 +109,37 @@ function prunePictures(onWalls: Set<string>) {
   }
 }
 
-function notice(text: string, bg: string, fg: string): THREE.CanvasTexture {
+/** A notice in place of a picture, painted on the same canvas again in the new language on a switch. */
+function notice(key: TextKey, bg: string, fg: string): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 512;
   c.height = 384;
+  paintNotice(c, t(key), bg, fg);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  onLang(() => {
+    paintNotice(c, t(key), bg, fg);
+    tex.needsUpdate = true;
+  });
+  return tex;
+}
+
+function paintNotice(c: HTMLCanvasElement, text: string, bg: string, fg: string): void {
   const g = c.getContext('2d')!;
   g.fillStyle = bg;
   g.fillRect(0, 0, c.width, c.height);
   g.fillStyle = fg;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.font = '800 44px Nunito, ui-rounded, system-ui, sans-serif';
+  g.font = `800 44px ${FONT}`;
+  dirFor(g, text);
   g.fillText(text, c.width / 2, c.height / 2);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
 }
 
 let loadingTex: THREE.CanvasTexture | null = null;
 let brokenTex: THREE.CanvasTexture | null = null;
-const loadingTexture = () => (loadingTex ??= notice('🖼️ Loading…', '#e9ecef', '#7a6f65'));
-export const brokenTexture = () => (brokenTex ??= notice('⚠️ Image unavailable', '#ffd6e0', '#2b2d42'));
+const loadingTexture = () => (loadingTex ??= notice('toys.hang.loadingTex', '#e9ecef', '#7a6f65'));
+export const brokenTexture = () => (brokenTex ??= notice('toys.hang.broken', '#ffd6e0', '#2b2d42'));
 
 // ---- Frames ---------------------------------------------------------------------------------------
 

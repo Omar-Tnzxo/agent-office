@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { BOARDS, LOFT, MACHINE_MONITOR, PLANTS, SEATING_BY_ID, STAIRS, STREET_Y, TV, WALL_HEIGHT, plantByWing } from '../../../shared/layout';
 import { wallFacing } from '../../../shared/decor';
 import type { NightParts } from '../outside';
-import { mesh, roundedBox, textPlane, toon, toonUnique } from '../toon';
+import { mesh, phrasePlane, roundedBox, toon, toonUnique } from '../toon';
+import { boardWords } from '../words';
 import type { Collider, Interactable } from '../types';
 import type { Fixture } from './fixture';
 import { PALETTE } from './materials';
@@ -69,7 +70,7 @@ export const boards: Fixture<'boardMeshes'> = (site) => {
     bg.rotation.y = b.rotY;
     site.group.add(bg);
     boardMeshes[key] = face;
-    const label = textPlane(b.label, { bg: '#fffaf3', size: 64 });
+    const label = phrasePlane(boardWords(b.label), { bg: '#fffaf3', size: 64 });
     label.scale.multiplyScalar(1.3);
     label.position.set(b.x + nx * 0.04, b.y + b.height / 2 + 0.5, b.z + nz * 0.04);
     label.rotation.y = b.rotY;

@@ -3,6 +3,7 @@ import type { Ctx } from '../../core/context';
 import { aside, hintTitle, key, onE } from '../../core/hint';
 import { store } from '../../state';
 import { clip } from '../../ui/dom';
+import { onLang, t } from '../../i18n';
 import { openJukebox } from './ui';
 import type { SettingsPane } from '../../ui/settings';
 
@@ -28,12 +29,14 @@ export function installJukebox(ctx: Ctx, deps: JukeboxDeps) {
     ctx.office.jukebox.show(j.on, trackTitle(j));
   }
   store.on('jukebox', playJukebox);
+  // Its display says "now playing" in the page's language.
+  onLang(() => ctx.office.jukebox?.repaint());
   ctx.interactions.define('jukebox', {
     reach: 4,
     hint: () => {
       const j = store.jukebox;
       const what = j.on ? trackTitle(j) : '';
-      return { k: `${j.on}|${what}`, parts: [hintTitle('🎵 Jukebox'), aside(j.on ? `♪ ${clip(what, 40)}` : 'off'), key('E', j.on ? 'Change the song' : 'Put on a song')] };
+      return { k: `${j.on}|${what}`, parts: [hintTitle(t('toys.juke.title')), aside(j.on ? `♪ ${clip(what, 40)}` : t('toys.juke.off')), key('E', t(j.on ? 'toys.juke.change' : 'toys.juke.putOn'))] };
     },
     use: onE(() => showJukebox()),
   });

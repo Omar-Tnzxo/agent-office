@@ -3,6 +3,8 @@ import type { ServiceInfo, ServicesState } from '../../shared/protocol';
 import { store } from '../state';
 import { h, openModal, timeAgo } from './dom';
 import { copy, copyButton, guessOs, openCommand, OS_LABEL, type Os } from './team';
+import { ltrText, t } from '../i18n';
+import { rich } from '../i18n/dom';
 
 /** Whether this page came over the office's Tailscale network, where every server has its own link. */
 function onTailnet(s: ServicesState): boolean {
@@ -40,7 +42,7 @@ function elsewhere(s: ServicesState): boolean {
 
 function describe(svc: ServiceInfo): { who: string; color: string; branch?: string } {
   const w = store.workers.get(svc.workerId);
-  return { who: w?.name ?? 'A worker', color: w?.color ?? '#8d99ae', branch: w?.worktree?.branch };
+  return { who: w?.name ?? t('work.aWorker'), color: w?.color ?? '#8d99ae', branch: w?.worktree?.branch };
 }
 
 export function openServices() {
@@ -48,13 +50,13 @@ export function openServices() {
   let picked: number | null = null;
   let copied: number | null = null;
   const body = h('div.body.team.services');
-  const close = h('button.btn.close', { 'aria-label': 'Close' }, '✕');
+  const close = h('button.btn.close', { 'aria-label': t('common.close') }, '✕');
   const tabs = h('div.os-tabs');
-  const footer = h('footer', {}, h('span.grow', {}, 'Tunnels go through the office, so the office password still guards every page. Keep the terminal open while you look.'));
+  const footer = h('footer', {}, h('span.grow', {}, t('work.svc.footTunnel')));
   const el = h(
     'div.modal',
-    { role: 'dialog', 'aria-label': 'Services', style: 'width:min(760px,100%)' },
-    h('header', {}, h('h2', {}, '🌐 Services'), tabs, close),
+    { role: 'dialog', 'aria-label': t('work.svc.aria'), style: 'width:min(760px,100%)' },
+    h('header', {}, h('h2', {}, t('work.svc.title')), tabs, close),
     body,
     footer,
   );
@@ -74,34 +76,16 @@ export function openServices() {
         h('button.btn', { type: 'button', class: o === os ? 'on' : '', onclick: () => ((os = o), (copied = null), render()) }, OS_LABEL[o]),
       ),
     );
-    footer.firstElementChild!.textContent = direct
-      ? 'Every link goes through the office, so the office sign-in still guards every page.'
-      : 'Tunnels go through the office, so the office password still guards every page. Keep the terminal open while you look.';
-    body.replaceChildren(
-      h(
-        'p.note',
-        { style: 'margin:0 0 12px' },
-        direct
-          ? 'Web servers the workers are running. Each has its own link on your Tailscale network: open it, or click the row to copy it for someone else on the network.'
-          : 'Web servers the workers are running. Click one to copy a command that opens it on your computer — run it in a terminal and the page opens by itself.',
-      ),
-    );
+    footer.firstElementChild!.textContent = t(direct ? 'work.svc.footDirect' : 'work.svc.footTunnel');
+    body.replaceChildren(h('p.note', { style: 'margin:0 0 12px' }, t(direct ? 'work.svc.introDirect' : 'work.svc.introTunnel')));
     if (!direct && elsewhere(s)) {
       body.append(
         h(
           'div.svc-auto',
           {},
-          h('p', {}, '⚡ Open them all, by themselves'),
-          h(
-            'p.note',
-            {},
-            'Run this on your computer and leave it running. Every server a worker starts opens on the same port there (',
-            h('code', {}, 'localhost:5173'),
-            ' is the worker’s), and closes when the worker stops it. It needs the ',
-            h('code', {}, 'agent-office'),
-            ' command on your computer: the install line in the README.',
-          ),
-          h('div.cmd', {}, h('pre', {}, autoTunnel()), copyButton('Copy', () => autoTunnel())),
+          h('p', {}, t('work.svc.autoTitle')),
+          h('p.note', {}, ...rich('work.svc.autoNote', { port: h('code', {}, 'localhost:5173'), cmd: h('code', {}, 'agent-office') })),
+          h('div.cmd', {}, h('pre', {}, autoTunnel()), copyButton(t('common.copy'), () => autoTunnel())),
         ),
       );
     }
@@ -110,8 +94,8 @@ export function openServices() {
         h(
           'div.svc-empty',
           {},
-          h('p', {}, 'Nothing running yet.'),
-          h('p.note', {}, 'When a worker starts a web server — ', h('code', {}, 'npm run dev'), ', a preview build, ', h('code', {}, 'python -m http.server'), ' — it shows up here within a few seconds. Try prompting: “start the dev server in the background so we can review it”.'),
+          h('p', {}, t('work.svc.none')),
+          h('p.note', {}, ...rich('work.svc.noneNote', { npm: h('code', {}, 'npm run dev'), py: h('code', {}, 'python -m http.server') })),
         ),
       );
       return;
@@ -120,18 +104,18 @@ export function openServices() {
     for (const svc of s.items) {
       const { who, color, branch } = describe(svc);
       const on = picked === svc.port;
-      const title = direct ? `Open ${serviceUrl(svc.port)}` : `Open ${serviceUrl(svc.port)} (needs the tunnel, unless the office runs on this computer)`;
-      const open = h('a.btn', { href: serviceUrl(svc.port), target: '_blank', rel: 'noopener', title }, 'Open ↗');
+      const title = t(direct ? 'work.svc.open' : 'work.svc.openTunnel', { url: ltrText(serviceUrl(svc.port)) });
+      const open = h('a.btn', { href: serviceUrl(svc.port), target: '_blank', rel: 'noopener', title }, t('work.svc.openBtn'));
       open.addEventListener('click', (e) => e.stopPropagation());
       const li = h(
         'li',
-        { class: on ? 'on' : '', tabindex: 0, role: 'button', title: direct ? 'Copy the link' : 'Copy the tunnel command' },
+        { class: on ? 'on' : '', tabindex: 0, role: 'button', title: t(direct ? 'work.svc.copyLink' : 'work.svc.copyCmd') },
         h('span.dot', { style: `background:${color}` }),
         h(
           'div.svc-main',
           {},
           h('div.svc-title', {}, svc.title || svc.command),
-          h('div.svc-meta', {}, [who, branch ? `🌿 ${branch}` : '', svc.title ? svc.command : '', `started ${timeAgo(svc.since)}`].filter(Boolean).join(' · ')),
+          h('div.svc-meta', {}, [who, branch ? `🌿 ${ltrText(branch)}` : '', svc.title ? ltrText(svc.command) : '', t('work.startedWhen', { when: timeAgo(svc.since) })].filter(Boolean).join(' · ')),
         ),
         h('span.svc-port', {}, `:${svc.port}`),
         open,
@@ -148,28 +132,29 @@ export function openServices() {
     body.append(list);
 
     const svc = s.items.find((i) => i.port === picked);
+    const url = svc ? ltrText(serviceUrl(svc.port)) : '';
     if (svc && direct) {
       body.append(
         copied === svc.port
-          ? h('p.team-status.ok', {}, `✅ Copied ${serviceUrl(svc.port)}. Anyone on the network who's signed in to the office can open it.`)
-          : h('p.team-status', {}, `The link for :${svc.port}: ${serviceUrl(svc.port)}`),
+          ? h('p.team-status.ok', {}, t('work.svc.copiedLink', { url }))
+          : h('p.team-status', {}, t('work.svc.linkFor', { port: String(svc.port), url })),
       );
     } else if (svc) {
       const cmd = serviceTunnel(s, svc.port, os);
       body.append(
         copied === svc.port
-          ? h('p.team-status.ok', {}, `✅ Copied. Paste it in a terminal: it opens ${serviceUrl(svc.port)} once the tunnel is up.`)
-          : h('p.team-status', {}, `The command for :${svc.port} — run it in a terminal, and it opens ${serviceUrl(svc.port)}.`),
-        h('div.cmd', {}, h('pre', {}, cmd), copyButton('Copy', () => cmd)),
+          ? h('p.team-status.ok', {}, t('work.svc.copiedCmd', { url }))
+          : h('p.team-status', {}, t('work.svc.cmdFor', { port: String(svc.port), url })),
+        h('div.cmd', {}, h('pre', {}, cmd), copyButton(t('common.copy'), () => cmd)),
       );
     } else if (picked !== null) {
-      body.append(h('p.team-status.error', {}, `The server on :${picked} stopped.`));
+      body.append(h('p.team-status.error', {}, t('work.svc.stopped', { port: String(picked) })));
     }
     if (direct) return;
     body.append(
       s.ssh
-        ? h('p.note', {}, 'It uses the same SSH access as the office. Not invited yourself (you set the office up)? Run ', h('code', {}, `${s.deploy ?? 'deploy/aws.sh'} service <port>`), ' instead.')
-        : h('p.note', {}, 'Replace ', h('code', {}, 'you@your-server'), ' with how you SSH to the office\'s machine. If the office runs on this computer, just click Open.'),
+        ? h('p.note', {}, ...rich('work.svc.sshNote', { cmd: h('code', {}, `${s.deploy ?? 'deploy/aws.sh'} service <port>`) }))
+        : h('p.note', {}, ...rich('work.svc.replaceNote', { addr: h('code', {}, 'you@your-server') })),
     );
   };
 

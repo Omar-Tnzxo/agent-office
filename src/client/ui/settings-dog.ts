@@ -4,21 +4,22 @@ import type { Net } from '../net';
 import { store } from '../state';
 import { DOG_BREEDS, DOG_BREED_NAMES, DOG_COATS, DOG_COAT_NAMES, DOG_NAME_MAX, cleanDogName, dogBreed } from '../../shared/dog';
 import { h } from './dom';
+import { t } from '../i18n';
 
 /** The setting, made by `frame` from what goes in it, and how to paint it afresh when the dog changes. */
 export function dogSetting(net: Net, frame: (body: Node[]) => HTMLElement): { section: HTMLElement; paint: () => void } {
-  const dogInput = h('input', { type: 'text', maxlength: DOG_NAME_MAX, 'aria-label': 'The dog’s name', spellcheck: 'false', autocomplete: 'off' }) as HTMLInputElement;
-  const dogSave = h('button.btn.primary', { type: 'button' }, 'Rename');
+  const dogInput = h('input', { type: 'text', maxlength: DOG_NAME_MAX, 'aria-label': t('settings.dog.name'), spellcheck: 'false', autocomplete: 'off' }) as HTMLInputElement;
+  const dogSave = h('button.btn.primary', { type: 'button' }, t('settings.dog.rename'));
   const dogNote = h('p.setting-note');
-  const breedRow = h('div.seg', { role: 'radiogroup', 'aria-label': 'Breed' });
-  const coatRow = h('div.swatches', { role: 'radiogroup', 'aria-label': 'Coat' });
+  const breedRow = h('div.seg', { role: 'radiogroup', 'aria-label': t('settings.dog.breed') });
+  const coatRow = h('div.swatches', { role: 'radiogroup', 'aria-label': t('settings.dog.coat') });
   const dogSection = frame([h('div.webhook', {}, dogInput, dogSave), breedRow, coatRow, dogNote]);
   const paintDog = () => {
     const dog = store.dog;
     dogSection.classList.toggle('hidden', !dog);
     if (!dog) return;
     dogInput.placeholder = dog.name;
-    dogNote.textContent = `${dog.name} lives on this floor. When a worker needs input, ${dog.name} runs to its desk and barks. Walk up and press E to pet it. Its name, breed and coat are for everyone on this floor.`;
+    dogNote.textContent = t('settings.dog.note', { name: dog.name });
     const breed = dogBreed(dog.breed);
     breedRow.replaceChildren(
       ...DOG_BREEDS.map((b) =>

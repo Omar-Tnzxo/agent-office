@@ -4,6 +4,7 @@ import { aside, hintTitle, key, onE } from '../../core/hint';
 import { saveSettings, store } from '../../state';
 import { openBookshelf } from './ui';
 import { clip, toast } from '../../ui/dom';
+import { t } from '../../i18n';
 
 // The kinds of thing you can use that this defines (see InteractKinds in world/types.ts).
 declare module '../../world/types' {
@@ -22,7 +23,7 @@ export function installBookshelf(ctx: Ctx) {
   const { settings } = ctx;
 
   function showBookshelf() {
-    if (!store.floor) return toast('Take the elevator to a floor first');
+    if (!store.floor) return toast(t('toys.shelf.noFloor'));
     openBookshelf({
       floor: store.floor,
       project: store.project?.name,
@@ -40,7 +41,7 @@ export function installBookshelf(ctx: Ctx) {
     reach: 4,
     hint: () => {
       const names = [...store.peers.values()].filter((p) => p.reading && p.id !== store.you && store.onMyFloor(p)).map((p) => p.name).join(', ');
-      return { k: names, parts: [hintTitle('📚 Bookshelf'), aside(names ? `📖 ${clip(names, 40)} reading` : "the project's docs"), key('E', 'Read the docs')] };
+      return { k: names, parts: [hintTitle(t('toys.shelf.title')), aside(names ? t('toys.shelf.reading', { names: clip(names, 40) }) : t('toys.shelf.docs')), key('E', t('toys.shelf.read'))] };
     },
     use: onE(() => showBookshelf()),
   });

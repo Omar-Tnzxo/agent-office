@@ -4,7 +4,7 @@ import { PROP_SIZE, type PropKind } from '../../../shared/maps/props';
 import { buildGong } from '../../features/gong/world';
 import type { Interactable } from '../types';
 import { canvasTexture } from '../texture';
-import { mesh, roundedBox, textPlane, toon, toonUnique } from '../toon';
+import { mesh, phrasePlane, roundedBox, toon, toonUnique } from '../toon';
 import { fireLight, flame } from './fire';
 import { TABLE_TOP, collide, type Kit } from './kit';
 import { archBand, archPane, archRise, box, rod } from './shapes';
@@ -369,7 +369,7 @@ function cask(kit: Kit, p: PropConfig): Interactable {
   }
   // Tankards on the rack.
   for (const x of [-0.72, 0.72]) g.add(mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.18, 10), toon('#8d939c'), x, 1.0, 0.25, false));
-  const sign = textPlane('🍺 Ale', { bg: '#efe3c2', size: 48 });
+  const sign = phrasePlane('world.castle.ale', { bg: '#efe3c2', size: 48 });
   sign.scale.multiplyScalar(0.55);
   sign.position.set(0, 1.85, 0.2);
   g.add(sign);

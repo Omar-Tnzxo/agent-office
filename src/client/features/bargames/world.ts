@@ -5,6 +5,7 @@ import type { Collider, Interactable } from '../../world/types';
 import { bulb, type NightParts } from '../../world/outside';
 import { canvasTexture } from '../../world/texture';
 import { disposeSprite, mergeByMaterial, mesh, textPlane, textSprite, toon } from '../../world/toon';
+import { boardTitle, chalkFont, chalkUp, chalkWords, scoreWord } from './words';
 
 // The rooftop bar's games corner (see shared/bargames.ts): an axe-throwing booth against the north
 // edge with its target on the back wall, and a dart board in a cabinet on the outside of the booth,
@@ -371,38 +372,37 @@ export function buildBarGames(night: NightParts): BarGamesView {
   axeChalk.g.position.set(L.minX, 1.55, front - 0.75);
   axeChalk.g.rotation.y = Math.PI / 2;
   group.add(axeChalk.g);
-  const boards: Record<BarGame, { tex: THREE.CanvasTexture; title: string }> = {
-    darts: { tex: dartChalk.tex, title: '🎯 Darts' },
-    axe: { tex: axeChalk.tex, title: '🪓 Axes' },
+  const boards: Record<BarGame, { tex: THREE.CanvasTexture }> = {
+    darts: { tex: dartChalk.tex },
+    axe: { tex: axeChalk.tex },
   };
 
   const drawChalk = (game: BarGame, round: { name: string; color: string; scores: Score[] } | null) => {
-    const { tex, title } = boards[game];
+    const { tex } = boards[game];
     const c = tex.image as HTMLCanvasElement;
     const g = c.getContext('2d')!;
-    const W = c.width;
-    const H = c.height;
+    const { width: W, height: H } = c;
     g.fillStyle = '#26332d';
     g.fillRect(0, 0, W, H);
-    const font = (px: number) => `800 ${px}px "Chalkboard SE", "Comic Sans MS", Nunito, ui-rounded, sans-serif`;
+    const font = chalkFont;
     g.textBaseline = 'middle';
     g.textAlign = 'center';
     g.fillStyle = CHALK;
     g.font = font(52);
-    g.fillText(title, W / 2, 50);
+    chalkUp(g, boardTitle(game), W / 2, 50);
     g.fillRect(40, 88, W - 80, 3);
     if (!round) {
       g.font = font(40);
       g.globalAlpha = 0.75;
-      g.fillText('Step up and', W / 2, H / 2 - 10);
-      g.fillText('press E!', W / 2, H / 2 + 42);
+      chalkUp(g, chalkWords().stepUp1, W / 2, H / 2 - 10);
+      chalkUp(g, chalkWords().stepUp2, W / 2, H / 2 + 42);
       g.globalAlpha = 1;
       tex.needsUpdate = true;
       return;
     }
     g.font = font(40);
     g.fillStyle = round.color;
-    g.fillText(round.name.length > 16 ? `${round.name.slice(0, 15)}…` : round.name, W / 2, 132);
+    chalkUp(g, round.name.length > 16 ? `${round.name.slice(0, 15)}…` : round.name, W / 2, 132);
     g.fillStyle = CHALK;
     g.font = font(36);
     g.textAlign = 'left';
@@ -414,7 +414,7 @@ export function buildBarGames(night: NightParts): BarGamesView {
       const y = top + i * step;
       g.globalAlpha = s ? 1 : 0.35;
       g.fillText(`${i + 1}.`, 60, y);
-      g.fillText(s ? s.label : '—', 130, y);
+      chalkUp(g, s ? scoreWord(s.label) : '-', 130, y);
       g.textAlign = 'right';
       if (s) g.fillText(String(s.points), W - 60, y);
       g.textAlign = 'left';
@@ -423,7 +423,7 @@ export function buildBarGames(night: NightParts): BarGamesView {
     const total = round.scores.reduce((a, s) => a + s.points, 0);
     g.fillRect(40, H - 78, W - 80, 3);
     g.font = font(44);
-    g.fillText('Total', 60, H - 40);
+    chalkUp(g, chalkWords().total, 60, H - 40);
     g.textAlign = 'right';
     g.fillText(String(total), W - 60, H - 40);
     tex.needsUpdate = true;

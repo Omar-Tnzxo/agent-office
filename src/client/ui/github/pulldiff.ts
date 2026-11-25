@@ -1,6 +1,7 @@
 import './pulldiff.css';
 import type { GhReviewComment } from '../../../shared/protocol';
 import { h, timeAgo } from '../dom';
+import { labels, t } from '../../i18n';
 import { markdown } from '../markdown';
 
 // A PR's unified diff (`gh pr diff`), split into files, and the pieces the Files tab draws with it:
@@ -148,7 +149,7 @@ export class Reviewed {
 
 // ---- Drawing a file's diff ------------------------------------------------------------------------
 
-export const STATUS_WORD: Record<DiffFile['status'], string> = { A: 'added', D: 'deleted', M: 'modified', R: 'renamed' };
+export const STATUS_WORD: Record<DiffFile['status'], string> = labels({ A: 'github.diff.added', D: 'github.diff.deleted', M: 'github.diff.modified', R: 'github.diff.renamed' });
 
 /** Lock files and build output: collapsed until asked for, like GitHub does. */
 export function looksGenerated(path: string): boolean {
@@ -193,11 +194,11 @@ export function repliesOf(comments: GhReviewComment[]): Map<number, GhReviewComm
 export function renderFileDiff(f: DiffFile, comments: GhReviewComment[], itemUrl: string): HTMLElement {
   const out = h('div.pd-lines');
   if (f.binary) {
-    out.append(h('div.pd-note', {}, 'Binary file — not shown.'));
+    out.append(h('div.pd-note', {}, t('github.diff.binary')));
     return out;
   }
   if (!f.lines.length) {
-    out.append(h('div.pd-note', {}, f.status === 'R' ? 'Renamed without changes.' : 'No changes to show (file mode or empty file).'));
+    out.append(h('div.pd-note', {}, t(f.status === 'R' ? 'github.diff.renamedOnly' : 'github.diff.empty')));
     return out;
   }
   const threads = threadsByLine(comments, f.path);

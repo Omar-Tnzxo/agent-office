@@ -5,13 +5,17 @@ import { store } from '../state';
 import { h, openModal, timeAgo } from './dom';
 import { confirmDialog } from './prompt';
 import { copyButton } from './team';
+import { ltrText, t, tn } from '../i18n';
+import { serverText } from '../i18n/server';
 
 export const inviteLink = (v: AccountInvite) => `${location.origin}/join#${v.token}`;
 
-function expiresIn(t: number): string {
-  const d = Math.round((t - Date.now()) / 86_400_000);
-  return d >= 1 ? `expires in ${d} day${d === 1 ? '' : 's'}` : 'expires today';
+function expiresIn(at: number): string {
+  const d = Math.round((at - Date.now()) / 86_400_000);
+  return d >= 1 ? tn('panels.acc.expiresIn', d) : t('panels.acc.expiresToday');
 }
+
+const roleName = (role: AccountRole) => t(role === 'admin' ? 'settings.role.admin' : 'settings.role.member');
 
 let onInvited: ((msg: Extract<ServerMsg, { t: 'accounts.invited' }>) => void) | null = null;
 
@@ -25,19 +29,19 @@ export function openAccounts(net: Net) {
   /** The invite just made, shown big until the next one. */
   let fresh: AccountInvite | null = null;
   const body = h('div.body.team.accounts');
-  const close = h('button.btn.close', { 'aria-label': 'Close' }, '✕');
+  const close = h('button.btn.close', { 'aria-label': t('common.close') }, '✕');
   const signedInAs = h('span.grow');
   const el = h(
     'div.modal',
-    { role: 'dialog', 'aria-label': 'Accounts', style: 'width:min(680px,100%)' },
-    h('header', {}, h('h2', {}, '🔑 Accounts'), close),
+    { role: 'dialog', 'aria-label': t('panels.acc.label'), style: 'width:min(680px,100%)' },
+    h('header', {}, h('h2', {}, t('panels.acc.title')), close),
     body,
     h('footer', {}, signedInAs),
   );
 
-  const nameInput = h('input', { type: 'text', maxlength: 24, placeholder: 'Their name (optional)', 'aria-label': 'Their name', autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement;
-  const roleSelect = h('select', { 'aria-label': 'Role' }, h('option', { value: 'member' }, 'Member'), h('option', { value: 'admin' }, 'Admin')) as HTMLSelectElement;
-  const inviteBtn = h('button.btn.primary', { type: 'submit' }, 'Make invite link');
+  const nameInput = h('input', { type: 'text', maxlength: 24, placeholder: t('panels.acc.name.placeholder'), 'aria-label': t('panels.acc.name'), autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement;
+  const roleSelect = h('select', { 'aria-label': t('panels.acc.role') }, h('option', { value: 'member' }, t('panels.acc.member')), h('option', { value: 'admin' }, t('panels.acc.admin'))) as HTMLSelectElement;
+  const inviteBtn = h('button.btn.primary', { type: 'submit' }, t('panels.acc.make'));
   const form = h('form.invite-row', {}, nameInput, roleSelect, inviteBtn) as HTMLFormElement;
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -48,35 +52,35 @@ export function openAccounts(net: Net) {
   const render = () => {
     const s = store.accounts;
     const me = store.me;
-    signedInAs.textContent = me.account ? `You're signed in as ${me.account.name} (${me.account.role}).` : "You're signed in with the shared office password.";
+    signedInAs.textContent = me.account ? t('panels.acc.signedInAs', { name: me.account.name, role: roleName(me.account.role) }) : t('panels.acc.signedInShared');
     const typing = document.activeElement === nameInput;
     body.replaceChildren();
-    if (!s) return body.append(h('p.empty', {}, 'Loading…'));
+    if (!s) return body.append(h('p.empty', {}, t('common.loading')));
 
     body.append(
-      h('label', {}, 'Invite someone'),
+      h('label', {}, t('panels.acc.invite')),
       form,
-      h('p.note', {}, 'You get a link that makes one account, with its own name and password. It works once and expires after 7 days. Leave the name empty and they pick their own.'),
+      h('p.note', {}, t('panels.acc.invite.note')),
     );
     if (status) body.append(status);
     if (fresh) {
       const v = fresh;
-      body.append(h('div.cmd', {}, h('pre', {}, inviteLink(v)), copyButton('Copy', () => inviteLink(v))));
+      body.append(h('div.cmd', {}, h('pre', {}, inviteLink(v)), copyButton(t('common.copy'), () => inviteLink(v))));
     }
-    if (store.invites) body.append(h('p.note', {}, 'On this office they also need a way in first: see 👥 Invite teammates.'));
+    if (store.invites) body.append(h('p.note', {}, t('panels.acc.wayIn')));
 
     const list = h('ul.team-list');
     for (const a of s.accounts) {
       const you = me.account?.name === a.name;
-      const seen = a.online ? 'in the office' : a.lastSeenAt ? `seen ${timeAgo(a.lastSeenAt)}` : 'never came in';
-      const role = h('button.btn', { type: 'button', title: a.role === 'admin' ? 'Take away admin rights' : 'Let them manage accounts too' }, a.role === 'admin' ? 'Make member' : 'Make admin');
+      const seen = a.online ? t('panels.acc.inOffice') : a.lastSeenAt ? t('panels.acc.seen', { when: timeAgo(a.lastSeenAt) }) : t('panels.acc.never');
+      const role = h('button.btn', { type: 'button', title: a.role === 'admin' ? t('panels.acc.demote.title') : t('panels.acc.promote.title') }, a.role === 'admin' ? t('panels.acc.demote') : t('panels.acc.promote'));
       role.addEventListener('click', () => net.send({ t: 'accounts.role', accountId: a.id, role: a.role === 'admin' ? 'member' : 'admin' }));
-      const revoke = h('button.btn.danger', { type: 'button', title: `Delete ${a.name}'s account` }, 'Revoke');
+      const revoke = h('button.btn.danger', { type: 'button', title: t('panels.acc.revoke.title', { name: a.name }) }, t('panels.acc.revoke'));
       revoke.addEventListener('click', () =>
         confirmDialog(
-          `Revoke ${a.name}?`,
-          `Their account is deleted and they're signed out everywhere right away. Terminals they typed in keep running. ${s.sharedPassword ? `If ${a.name} also knows the shared office password, they can still use that: switch it off below.` : ''}`,
-          'Revoke',
+          t('panels.acc.revoke.q', { name: a.name }),
+          `${t('panels.acc.revoke.body')} ${s.sharedPassword ? t('panels.acc.revoke.shared', { name: a.name }) : ''}`,
+          t('panels.acc.revoke'),
           () => net.send({ t: 'accounts.revoke', accountId: a.id }),
         ),
       );
@@ -85,21 +89,21 @@ export function openAccounts(net: Net) {
           'li',
           {},
           h('span.dot', { class: a.online ? 'on' : '', title: seen }),
-          h('span.name', {}, a.name, you ? h('span.you', {}, ' (you)') : null),
-          h('span.role', { class: a.role }, a.role),
-          h('span.keys', { title: `Invited by ${a.createdBy}` }, seen),
+          h('span.name', {}, a.name, you ? h('span.you', {}, t('panels.acc.you')) : null),
+          h('span.role', { class: a.role }, roleName(a.role)),
+          h('span.keys', { title: t('panels.acc.invitedBy', { who: a.createdBy }) }, seen),
           you ? null : role,
           you ? null : revoke,
         ),
       );
     }
-    if (!s.accounts.length) list.append(h('li.empty', {}, 'Nobody has an account yet'));
-    body.append(h('h4', {}, 'People ', h('span.count', {}, String(s.accounts.length))), list);
+    if (!s.accounts.length) list.append(h('li.empty', {}, t('panels.acc.nobody')));
+    body.append(h('h4', {}, t('panels.acc.people'), h('span.count', {}, String(s.accounts.length))), list);
 
     if (s.invites.length) {
       const invites = h('ul.team-list');
       for (const v of s.invites) {
-        const cancel = h('button.btn', { type: 'button', title: 'The link stops working' }, 'Cancel');
+        const cancel = h('button.btn', { type: 'button', title: t('panels.acc.cancel.title') }, t('common.cancel'));
         cancel.addEventListener('click', () => {
           if (fresh?.id === v.id) fresh = null;
           net.send({ t: 'accounts.cancel', inviteId: v.id });
@@ -108,39 +112,37 @@ export function openAccounts(net: Net) {
           h(
             'li',
             {},
-            h('span.name', {}, v.name ?? h('i', {}, 'they pick a name')),
-            h('span.role', { class: v.role }, v.role),
-            h('span.keys', { title: `Made by ${v.createdBy} ${timeAgo(v.createdAt)}` }, expiresIn(v.expiresAt)),
-            copyButton('Copy link', () => inviteLink(v)),
+            h('span.name', {}, v.name ?? h('i', {}, t('panels.acc.theyPick'))),
+            h('span.role', { class: v.role }, roleName(v.role)),
+            h('span.keys', { title: t('panels.acc.madeBy', { who: v.createdBy, when: timeAgo(v.createdAt) }) }, expiresIn(v.expiresAt)),
+            copyButton(t('panels.acc.copyLink'), () => inviteLink(v)),
             cancel,
           ),
         );
       }
-      body.append(h('h4', {}, 'Open invites ', h('span.count', {}, String(s.invites.length))), invites);
+      body.append(h('h4', {}, t('panels.acc.open'), h('span.count', {}, String(s.invites.length))), invites);
     }
 
     // The shared password: the old way in, kept as a fallback until everyone has an account.
-    const toggle = h('button.btn', { type: 'button', class: s.sharedPassword ? 'danger' : '' }, s.sharedPassword ? 'Switch it off' : 'Switch it back on');
+    const toggle = h('button.btn', { type: 'button', class: s.sharedPassword ? 'danger' : '' }, s.sharedPassword ? t('panels.acc.off') : t('panels.acc.on'));
     const canSwitchOff = me.account?.role === 'admin';
     if (s.sharedPassword && !canSwitchOff) toggle.setAttribute('disabled', '');
     toggle.addEventListener('click', () => {
       if (!s.sharedPassword) return net.send({ t: 'accounts.shared', on: true });
       confirmDialog(
-        'Switch off the shared password?',
-        'From now on only people with an account of their own can sign in. Everyone who came in with the shared password is signed out right away.',
-        'Switch it off',
+        t('panels.acc.off.q'),
+        t('panels.acc.off.body'),
+        t('panels.acc.off'),
         () => net.send({ t: 'accounts.shared', on: false }),
       );
     });
     body.append(
-      h('div.team-head', {}, h('h4', {}, 'Shared office password'), toggle),
+      h('div.team-head', {}, h('h4', {}, t('panels.acc.shared')), toggle),
       h(
         'p.note',
         {},
-        s.sharedPassword
-          ? 'On. Anyone who knows it gets in as an admin and picks any name they like. Once everyone has an account, switch it off, so that revoking someone really locks them out.'
-          : 'Off: only accounts can sign in. If every admin is ever locked out, run agent-office accounts password on on the office’s machine.',
-        s.sharedPassword && !canSwitchOff ? h('b', {}, ' Make yourself an admin account and sign in with it before you switch it off.') : null,
+        s.sharedPassword ? t('panels.acc.shared.on') : t('panels.acc.shared.off', { cmd: ltrText('agent-office accounts password on') }),
+        s.sharedPassword && !canSwitchOff ? h('b', {}, t('panels.acc.shared.first')) : null,
       ),
     );
     if (typing) nameInput.focus();
@@ -149,12 +151,12 @@ export function openAccounts(net: Net) {
   onInvited = (msg) => {
     inviteBtn.disabled = false;
     if (msg.error || !msg.invite) {
-      status = h('p.team-status.error', {}, msg.error ?? 'Could not make the invite');
+      status = h('p.team-status.error', {}, msg.error ? serverText(msg.error) : t('panels.acc.inviteFailed'));
       return render();
     }
     fresh = msg.invite;
     nameInput.value = '';
-    status = h('p.team-status.ok', {}, `✅ Send this link to ${msg.invite.name ?? 'them'}. It works once and expires after 7 days.`);
+    status = h('p.team-status.ok', {}, msg.invite.name ? t('panels.acc.sendTo', { name: msg.invite.name }) : t('panels.acc.sendToThem'));
     render();
   };
   // No longer an admin (someone changed your role): the list isn't yours to see any more.

@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import type { Ctx } from '../../core/context';
 import type { Parts } from '../../core/parts';
+import { onLang } from '../../i18n';
 import { needingYou } from '../../nextup';
 import { store } from '../../state';
 import { $ } from '../../ui/dom';
@@ -40,8 +41,11 @@ export function installNeedsYou(ctx: Ctx, parts: Pick<Parts, 'views' | 'waiting'
   function paintBanner() {
     const asking = needingYou(store.workers.values());
     for (const key of hidden) if (!asking.some((w) => waitKey(w) === key)) hidden.delete(key);
-    banner.show(bannerText(asking.filter((w) => !hidden.has(waitKey(w))), Date.now()));
+    const shown = asking.filter((w) => !hidden.has(waitKey(w)));
+    banner.show(bannerText(shown, Date.now()), shown[0]?.name);
   }
+  // Its words are in the language now (see bannerText): a switch shows them in the new one at once.
+  onLang(paintBanner);
 
   function sync() {
     // Not ones that were asking already when the page first saw them (a reload, a floor you've just arrived on).

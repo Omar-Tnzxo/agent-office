@@ -1,9 +1,10 @@
 import './floormenu.css';
 import { cloneLabel, floorPalette } from '../../shared/floors';
-import { ROOF, ROOF_NAME } from '../../shared/rooftop';
+import { ROOF } from '../../shared/rooftop';
 import type { FloorInfo } from '../../shared/protocol';
 import { store } from '../state';
 import { h } from './dom';
+import { isRtl, t, tn } from '../i18n';
 
 // The floor list that drops down from the project in the corner: every floor of the building, top
 // floor first. Picking one takes you straight there, to the same spot in the office you're standing
@@ -33,24 +34,24 @@ export function closeFloorMenu() {
 /** Opens the floor list under `anchor`, or closes it if it's open. */
 export function toggleFloorMenu(anchor: HTMLElement, opts: FloorMenuOptions): void {
   if (current) return current.close();
-  const el = h('div.floor-menu.panel', { role: 'menu', 'aria-label': 'Floors' });
+  const el = h('div.floor-menu.panel', { role: 'menu', 'aria-label': t('panels.floors') });
 
   const item = (f: FloorInfo, i: number, here: number) => {
     const isHere = f.id === store.floor;
     const p = floorPalette(f.palette);
     const n = Math.abs(i - here);
-    const where = isHere ? 'you are here' : here < 0 ? '' : `${i > here ? '⬆' : '⬇'} ${n} floor${n === 1 ? '' : 's'} ${i > here ? 'up' : 'down'}`;
+    const where = isHere ? t('panels.elev.here') : here < 0 ? '' : tn(i > here ? 'panels.floors.up' : 'panels.floors.down', n);
     const stats: HTMLElement[] = [];
-    if (f.cloning) stats.push(h('span', { title: f.clone?.detail ?? 'Being cloned' }, cloneLabel(f.clone)));
+    if (f.cloning) stats.push(h('span', { title: f.clone?.detail ?? t('panels.elev.cloning') }, cloneLabel(f.clone)));
     else {
-      if (f.waiting) stats.push(h('span.waiting', { title: 'Workers waiting on someone' }, `🙋 ${f.waiting}`));
-      if (f.busy) stats.push(h('span', { title: 'Working' }, `👷 ${f.busy}`));
-      stats.push(h('span', { title: 'Workers at desks' }, `💻 ${f.workers}`));
-      if (f.people) stats.push(h('span', { title: 'People on this floor' }, `🧑 ${f.people}`));
+      if (f.waiting) stats.push(h('span.waiting', { title: t('panels.floors.waiting') }, `🙋 ${f.waiting}`));
+      if (f.busy) stats.push(h('span', { title: t('panels.elev.working') }, `👷 ${f.busy}`));
+      stats.push(h('span', { title: t('panels.elev.atDesks') }, `💻 ${f.workers}`));
+      if (f.people) stats.push(h('span', { title: t('panels.elev.people') }, `🧑 ${f.people}`));
     }
     const btn = h(
       'button.floor-item',
-      { type: 'button', role: 'menuitem', class: isHere ? 'here' : '', disabled: isHere || f.cloning, title: isHere ? "You're on this floor" : f.cloning ? 'Still being cloned' : opts.indoors() ? `Go to ${f.name}, right where you're standing` : `Go to ${f.name}, in its elevator` },
+      { type: 'button', role: 'menuitem', class: isHere ? 'here' : '', disabled: isHere || f.cloning, title: isHere ? t('panels.elev.onFloor') : f.cloning ? t('panels.elev.stillCloning') : t(opts.indoors() ? 'panels.floors.goHere' : 'panels.floors.goElevator', { name: f.name }) },
       h('span.floor-no', { style: `background:${p.trim}` }, String(i + 1)),
       h('span.floor-text', {}, h('span.floor-name', {}, f.name), h('span.floor-sub', {}, where || (f.repo ?? f.dir))),
       h('span.floor-stats', {}, ...stats),
@@ -66,7 +67,7 @@ export function toggleFloorMenu(anchor: HTMLElement, opts: FloorMenuOptions): vo
   const render = () => {
     const floors = store.floors;
     const here = floors.findIndex((f) => f.id === store.floor);
-    const add = h('button.floor-item.add', { type: 'button', role: 'menuitem', title: 'The elevator: add another project as a floor' }, h('span.floor-no', {}, '🛗'), h('span.floor-text', {}, h('span.floor-name', {}, 'Elevator'), h('span.floor-sub', {}, 'Add a project…')));
+    const add = h('button.floor-item.add', { type: 'button', role: 'menuitem', title: t('panels.floors.add.title') }, h('span.floor-no', {}, '🛗'), h('span.floor-text', {}, h('span.floor-name', {}, t('panels.elev.label')), h('span.floor-sub', {}, t('panels.floors.add'))));
     add.addEventListener('click', () => {
       close();
       opts.elevator();
@@ -77,22 +78,24 @@ export function toggleFloorMenu(anchor: HTMLElement, opts: FloorMenuOptions): vo
     const people = [...store.peers.values()].filter((p) => p.floor === ROOF).length;
     const roof = h(
       'button.floor-item',
-      { type: 'button', role: 'menuitem', class: onRoof ? 'here' : '', disabled: onRoof, title: onRoof ? "You're up on the roof" : 'Take the elevator up to the roof' },
+      { type: 'button', role: 'menuitem', class: onRoof ? 'here' : '', disabled: onRoof, title: onRoof ? t('panels.elev.onRoof') : t('panels.floors.roof.title') },
       h('span.floor-no', { style: 'background:#2b2d42' }, '🍸'),
-      h('span.floor-text', {}, h('span.floor-name', {}, ROOF_NAME), h('span.floor-sub', {}, onRoof ? 'you are here' : 'A DJ, drinks and the city')),
-      h('span.floor-stats', {}, people ? h('span', { title: 'People up there' }, `🧑 ${people}`) : ''),
+      h('span.floor-text', {}, h('span.floor-name', {}, t('panels.elev.roof')), h('span.floor-sub', {}, onRoof ? t('panels.elev.here') : t('panels.floors.roof.sub'))),
+      h('span.floor-stats', {}, people ? h('span', { title: t('panels.elev.upThere') }, `🧑 ${people}`) : ''),
     );
     roof.addEventListener('click', () => {
       if (onRoof) return;
       close();
       opts.roof?.();
     });
-    el.replaceChildren(h('div.floor-menu-head', {}, `🏢 ${floors.length} floor${floors.length === 1 ? '' : 's'}`), ...(floors.length && opts.roof ? [roof] : []), ...items, add);
+    el.replaceChildren(h('div.floor-menu-head', {}, `🏢 ${tn('panels.floors.count', floors.length)}`), ...(floors.length && opts.roof ? [roof] : []), ...items, add);
   };
 
   const place = () => {
     const r = anchor.getBoundingClientRect();
-    el.style.left = `${r.left}px`;
+    // Under the anchor's start edge: its right edge on a right-to-left page.
+    el.style.left = isRtl() ? '' : `${r.left}px`;
+    el.style.right = isRtl() ? `${window.innerWidth - r.right}px` : '';
     el.style.top = `${r.bottom + 8}px`;
   };
 

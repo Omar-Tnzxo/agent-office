@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Subagent } from '../../../shared/protocol';
+import { t, tn } from '../../i18n';
 import { cardSprite, disposeSprite, mesh, textSprite, toon, toonUnique } from '../toon';
 
 /** A subagent's colour: its own, picked from its id, so the same one keeps its colour. */
@@ -94,10 +95,10 @@ export class SubagentFigure {
 
 /** What a subagent's chip says it is. */
 export function subagentKind(s: Pick<Subagent, 'type' | 'phase'>): string {
-  if (s.type === 'workflow-subagent') return `🔀 ${s.phase ?? 'workflow'}`.toUpperCase();
-  if (s.type === 'Explore') return '🔎 EXPLORE';
-  if (s.type === 'Plan') return '📐 PLAN';
-  if (s.type === 'general-purpose') return '🤖 AGENT';
+  if (s.type === 'workflow-subagent') return `🔀 ${s.phase ?? t('world.subagent.workflow')}`.toUpperCase();
+  if (s.type === 'Explore') return t('world.subagent.explore');
+  if (s.type === 'Plan') return t('world.subagent.plan');
+  if (s.type === 'general-purpose') return t('world.subagent.agent');
   return `🤖 ${s.type}`.toUpperCase();
 }
 
@@ -149,7 +150,7 @@ export class SubagentCrowd {
         this.more = null;
       }
       if (more > 0) {
-        this.more = textSprite(`+${more} more`, { bg: '#ffd166', size: 30 });
+        this.more = textSprite(tn('world.subagent.more', more), { bg: '#ffd166', size: 30 });
         const [x, z] = this.spot(list.length);
         this.more.position.set(x, 0.6, z);
         this.parent.add(this.more);

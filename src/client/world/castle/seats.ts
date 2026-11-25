@@ -5,7 +5,8 @@ import { boxFootprint } from '../../../shared/maps/props';
 import { deskPoint } from '../../../shared/nav';
 import { vacancyMarker } from '../office';
 import type { DeskView, Interactable } from '../types';
-import { mesh, roundedBox, textPlane, toon } from '../toon';
+import { t } from '../../i18n';
+import { mesh, phrasePlane, roundedBox, toon } from '../toon';
 import { flame } from './fire';
 import { BENCH_TOP, TABLE_TOP, collide, xz, type Kit } from './kit';
 import { box } from './shapes';
@@ -122,7 +123,7 @@ export function buildCouncil(kit: Kit, plan: MapPlan): { board?: THREE.Mesh; sig
   sign.position.set(0, 0.92, 0.07);
   easel.add(mesh(box(1.3, 0.42, 0.06), mats.woodDark, 0, 0.92, 0.02));
   easel.add(sign);
-  const title = textPlane('🤝 The small council', { bg: '#efe3c2', size: 56 });
+  const title = phrasePlane('world.castle.council', { bg: '#efe3c2', size: 56 });
   title.scale.multiplyScalar(0.62);
   title.position.set(0, 2.98, 0.06);
   easel.add(title);
@@ -133,7 +134,7 @@ export function buildCouncil(kit: Kit, plan: MapPlan): { board?: THREE.Mesh; sig
   return { board, sign };
 }
 
-const LECTERN_SIGN: Record<StationKind, string> = { issues: '📜 Ask me', pulls: '🔀 Ask me', queue: '📋 Ask me' };
+const LECTERN_ICON: Record<StationKind, string> = { issues: '📜', pulls: '🔀', queue: '📋' };
 
 /** A board agent's lectern (a scribe's desk): the agent stands behind it, as at the office's kiosk. */
 export function lectern(kit: Kit, def: DeskDef): DeskView {
@@ -158,7 +159,7 @@ export function lectern(kit: Kit, def: DeskDef): DeskView {
   g.add(top);
   // The agent's color on a cloth over the front, and a sign.
   g.add(mesh(box(0.42, 0.55, 0.02), toon(STATION_AGENT[kind].color), 0, 0.62, -0.09, false));
-  const sign = textPlane(LECTERN_SIGN[kind], { bg: '#efe3c2', size: 56 });
+  const sign = phrasePlane(() => t('world.askMe', { icon: LECTERN_ICON[kind] }), { bg: '#efe3c2', size: 56 });
   sign.scale.multiplyScalar(0.55);
   sign.position.set(0, 0.62, -0.11);
   sign.rotation.y = Math.PI;

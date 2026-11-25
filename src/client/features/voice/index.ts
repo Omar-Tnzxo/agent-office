@@ -3,6 +3,7 @@
  * shared screens' thumbnails, watching one full screen, and which of them is up on the office TV.
  */
 import type { Ctx } from '../../core/context';
+import { t } from '../../i18n';
 import { store } from '../../state';
 import { $, h, openModal, toast } from '../../ui/dom';
 
@@ -23,7 +24,7 @@ export function installVoice(ctx: Ctx, deps: VoiceDeps) {
   async function joinVoice() {
     const err = await voice.joinVoice(ctx.settings.pushToTalk);
     if (err) toast(err, 'warn');
-    else if (ctx.settings.pushToTalk && voice.inVoice) toast('🎙️ In voice, muted: hold V to talk');
+    else if (ctx.settings.pushToTalk && voice.inVoice) toast(t('desks.voice.muted'));
   }
   ctx.keys.bind({
     code: 'KeyV',
@@ -61,7 +62,7 @@ export function installVoice(ctx: Ctx, deps: VoiceDeps) {
       const peer = store.peers.get(id);
       // A screen shared on another floor is on that floor's TV.
       if (peer && !store.onMyFloor(peer)) continue;
-      out.push([peer?.name ?? 'Someone', s]);
+      out.push([peer?.name ?? t('desks.voice.someone'), s]);
     }
     return out;
   }
@@ -79,7 +80,7 @@ export function installVoice(ctx: Ctx, deps: VoiceDeps) {
         .map(([who, s]) => {
           const v = h('video', { autoplay: true, playsinline: true, muted: true }) as HTMLVideoElement;
           v.srcObject = s;
-          return h('div.share-thumb', { onclick: () => watchShare(), title: 'Watch full screen' }, v, h('span.who', {}, `🖥️ ${who}`));
+          return h('div.share-thumb', { onclick: () => watchShare(), title: t('desks.tv.watch') }, v, h('span.who', {}, `🖥️ ${who}`));
         }),
     );
     ctx.hint.invalidate();
@@ -96,8 +97,10 @@ export function installVoice(ctx: Ctx, deps: VoiceDeps) {
     // What's on the TV: someone else's screen before your own.
     const [who, stream] = streams.find(([name]) => name !== 'You') ?? streams[0];
     video.srcObject = stream;
-    const close = h('button.btn.close', { 'aria-label': 'Close' }, '✕');
-    const el = h('div.modal.viewer', { role: 'dialog', 'aria-label': 'Screen share' }, h('header', {}, h('h2', {}, `🖥️ ${who}'s screen`), close), video);
+    const close = h('button.btn.close', { 'aria-label': t('common.close') }, '✕');
+    // 'You' marks your own share in currentShares; it's shown in the language now.
+    const heading = who === 'You' ? t('desks.voice.yourScreen') : t('desks.voice.screenOf', { name: who });
+    const el = h('div.modal.viewer', { role: 'dialog', 'aria-label': t('desks.voice.share') }, h('header', {}, h('h2', {}, heading), close), video);
     const modal = openModal(el, { doing: `🖥️ watching ${who}'s screen`, onClose: () => (video.srcObject = null) });
     close.addEventListener('click', () => modal.close());
   }
@@ -111,8 +114,8 @@ export function installVoice(ctx: Ctx, deps: VoiceDeps) {
   voice.onFailed((id) => {
     if (unreachable.has(id)) return;
     unreachable.add(id);
-    const who = store.peers.get(id)?.name ?? 'someone';
-    toast(`🎙️ Can't connect voice with ${who}: a network between you blocks direct calls. The office needs a TURN server (see self-hosting docs).`, 'warn');
+    const who = store.peers.get(id)?.name ?? t('desks.voice.someoneLower');
+    toast(t('desks.voice.unreachable', { who }), 'warn');
   });
   ctx.messages.on('peer.join', () => voice.syncPeers());
   ctx.messages.on('peer.leave', () => voice.syncPeers());

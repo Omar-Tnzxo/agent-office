@@ -4,7 +4,7 @@ import { STATION_SIZE, type StationPropKind } from '../../../shared/maps/station
 import { buildGong } from '../../features/gong/world';
 import type { Interactable } from '../types';
 import { canvasTexture } from '../texture';
-import { mesh, roundedBox, textPlane, toon } from '../toon';
+import { mesh, phrasePlane, roundedBox, toon } from '../toon';
 import { MAX_LIGHTS, TABLE_TOP, box, collide, lit, placed, type Kit } from './kit';
 import { telemetry } from './textures';
 
@@ -181,7 +181,7 @@ function dispenser(kit: Kit, p: PropConfig): Interactable {
   g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.12, 8), metal, 0, 1.03, d / 2 + 0.06, false));
   g.add(mesh(box(w - 0.3, 0.05, 0.24), metal, 0, 0.64, d / 2 + 0.1, false));
   g.add(mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.14, 12), white, 0, 0.74, d / 2 + 0.1, false));
-  const sign = textPlane('☕ Hot drinks', { bg: '#0f1a26', color: '#cfeeff', border: '#3a5a78', size: 48 });
+  const sign = phrasePlane('world.station.drinks', { bg: '#0f1a26', color: '#cfeeff', border: '#3a5a78', size: 48 });
   sign.scale.multiplyScalar(0.6);
   sign.position.set(0, 2.25, d / 2 - 0.1);
   g.add(sign);
