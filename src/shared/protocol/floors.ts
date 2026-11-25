@@ -15,6 +15,7 @@ import type { PeerInfo } from './presence.js';
 import type { QueueState } from './queue.js';
 import type { ServicesState } from './settings.js';
 import type { VisitorsState } from './visitors.js';
+import type { TicketsState } from './tickets.js';
 import type { JailState, WorkerInfo } from './workers.js';
 
 export interface ProjectInfo {
@@ -127,6 +128,8 @@ export interface FloorView {
   jail: JailState;
   /** Claude Code sessions the office didn't start, visiting this floor (see protocol/visitors.ts). */
   visitors: VisitorsState;
+  /** The floor's tickets, when its repository keeps them (see protocol/tickets.ts). */
+  tickets: TicketsState;
 }
 
 export type FloorClientMsg =

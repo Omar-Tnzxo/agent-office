@@ -4,6 +4,7 @@
 // An office floor built out into the back office (see WING) has more of it to get round: the office's
 // helpers take how many rows it's built out (`wing`), and each level gets a grid of its own.
 
+import { REVIEW_TABLE } from './tickets.js';
 import { BALCONY, BALCONY_DOOR, BEANBAGS, BOOKSHELF, CABINET, DESK_SIZE, ELEVATOR, ELEVATOR_FRONT, EXIT_DOOR, EXIT_STAIRS, FLOOR, GONG, JUKEBOX, KIOSK, LADDER, LOFT, MEETING_ROOM, MEETING_SEATS, MEETING_TABLE, PARACHUTE, POLE, POLES, ROAD, STAIRS, STATIONS, WHITEBOARD, WING, builtDesks, plantsAt, wingLevel, wingMinZ, type DeskDef } from './layout.js';
 
 
@@ -91,6 +92,8 @@ function obstacles(wing: number): Obstacles {
     const zs = corners.map(([, z]) => z);
     rects.push([Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)]);
   }
+  // The review table against the meeting room's glass, out only on a floor that keeps tickets (as features/handoffs/world.ts puts it).
+  rects.push([REVIEW_TABLE.x - REVIEW_TABLE.width / 2, REVIEW_TABLE.x + REVIEW_TABLE.width / 2, REVIEW_TABLE.z - REVIEW_TABLE.depth / 2, REVIEW_TABLE.z + REVIEW_TABLE.depth / 2]);
   // The meeting room under the loft: its glass walls, with the doorway in the north one, and the
   // table with its chairs, as world/office/meeting-room.ts puts them.
   const room = MEETING_ROOM;

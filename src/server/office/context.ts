@@ -26,6 +26,7 @@ import type { LeaveOnMerge } from '../leave-on-merge.js';
 import type { ChatLog } from '../history.js';
 import type { Arcade, HighScores } from '../cabinet.js';
 import type { Visitors } from '../visitors/index.js';
+import type { Tickets } from '../tickets/index.js';
 import type { AgentProvider, FloorInfo, Me, ServerMsg, ServiceInfo, ServicesState, SignInKind } from '../../shared/protocol.js';
 import type { Client } from './client.js';
 import type { Spot } from './input.js';
@@ -91,6 +92,8 @@ export interface LateServices {
   upgrader: Upgrader;
   /** Claude Code sessions the office didn't start, shown on the floors as visitors (see visitors/). */
   visitors: Visitors;
+  /** The tickets of the floors whose repository keeps them (see tickets/). */
+  tickets: Tickets;
   /** A floor's Services board: its own workers' servers. */
   servicesState(floor: Floor | undefined, items?: ServiceInfo[]): ServicesState;
 }

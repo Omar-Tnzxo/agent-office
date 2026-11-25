@@ -19,6 +19,7 @@ import { rooftopHandlers } from './rooftop.js';
 import { servicesView, settingsHandlers } from './settings.js';
 import { signinsHandlers } from './signins.js';
 import { teamHandlers } from './team.js';
+import { ticketsView } from './tickets.js';
 import { usageHandlers } from './usage.js';
 import { visitorsView } from './visitors.js';
 import { whiteboardHandlers, whiteboardHooks, whiteboardView } from './whiteboard.js';
@@ -75,4 +76,5 @@ export const views: ViewPieces = {
   meeting: meetingView,
   cabinet: cabinetView,
   visitors: visitorsView,
+  tickets: ticketsView,
 };

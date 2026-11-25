@@ -18,6 +18,7 @@ import { Maps } from '../maps.js';
 import { OfficePrompts } from '../prompts.js';
 import { LeaveOnMerge } from '../leave-on-merge.js';
 import { claudeProjectsDirs, Visitors } from '../visitors/index.js';
+import { Tickets } from '../tickets/index.js';
 import type { ServiceInfo, ServicesState } from '../../shared/protocol.js';
 import type { BuildingServices, Ctx, LateServices } from './context.js';
 import type { Client } from './client.js';
@@ -177,5 +178,15 @@ export function createLateServices(ctx: Ctx): LateServices {
     },
   );
   visitors.start();
-  return { team, tailnet, services, images, upgrader, visitors, servicesState };
+  // The floors whose repository keeps its work as tickets: who hands what to whom (see tickets/).
+  const tickets = new Tickets({
+    floors: () => [...floors.values()].map((f) => ({ id: f.id, dir: f.dir })),
+    visitorFolders: (id) => visitors.folders(id),
+    watched: (id) => [...clients.values()].some((c) => c.peer.floor === id),
+    send: (id, msg) => {
+      const floor = floors.get(id);
+      if (floor) ctx.toFloor(floor, msg);
+    },
+  });
+  return { team, tailnet, services, images, upgrader, visitors, tickets, servicesState };
 }
