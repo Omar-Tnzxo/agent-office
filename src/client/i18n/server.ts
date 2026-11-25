@@ -317,18 +317,27 @@ export const SAY_RULES: readonly Rule[] = [
   [/^(.+) done$/, 'tickets.say.done', ['stage']],
 ];
 
-/** `text` said again by the first of `rules` that matches it, with its holes carried over; as it came in English, past LONGEST, or when none does. */
-function byRules(rules: readonly Rule[], text: string): string {
+/**
+ * `text` said again by the first of `rules` that matches it, with its holes carried over; as it came
+ * in English, past LONGEST, or when none does. With `isolate`, each hole is a first-strong isolate
+ * (U+2068 ... U+2069, which shows nothing), so a path like "02-research.md" in an Arabic sentence
+ * keeps its own order instead of reading "research.md-02", and an Arabic question still reads right
+ * to left.
+ */
+function byRules(rules: readonly Rule[], text: string, isolate = false): string {
   if (lang() === 'en' || text.length > LONGEST) return text;
+  const hole = (s: string) => (isolate ? FSI + s + PDI : s);
   for (const [pattern, key, holes] of rules) {
     const m = pattern.exec(text);
-    if (m) return t(key, Object.fromEntries(holes.map((name, i) => [name, m[i + 1] ?? ''])));
+    if (m) return t(key, Object.fromEntries(holes.map((name, i) => [name, hole(m[i + 1] ?? '')])));
   }
   return text;
 }
+const FSI = String.fromCharCode(0x2068);
+const PDI = String.fromCharCode(0x2069);
 
 /** A line the office wrote about a visitor's tool call, in the page's language when a rule knows it. */
-export const toolText = (text: string): string => byRules(TOOL_RULES, text);
+export const toolText = (text: string): string => byRules(TOOL_RULES, text, true);
 
 /** What a visitor says handing a ticket over, in the page's language when a rule knows it. */
-export const sayText = (text: string): string => byRules(SAY_RULES, text);
+export const sayText = (text: string): string => byRules(SAY_RULES, text, true);

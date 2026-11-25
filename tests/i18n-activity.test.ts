@@ -5,9 +5,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AREAS } from '../src/client/i18n/dict.js';
 import { setLang, textIn } from '../src/client/i18n/index.js';
-import { SAY_RULES, TOOL_RULES, sayText, toolText } from '../src/client/i18n/server.js';
+import { SAY_RULES, TOOL_RULES, sayText as sayRaw, toolText as toolRaw } from '../src/client/i18n/server.js';
 import { toolHeadline } from '../src/server/visitors/feed.js';
 import { sayOf } from '../src/server/tickets/parse.js';
+
+/** The isolates each hole is wrapped in (U+2066 to U+2069), which show nothing, left out to compare. */
+const ISOLATES = /[⁦-⁩]/g;
+const toolText = (s: string) => toolRaw(s).replace(ISOLATES, '');
+const sayText = (s: string) => sayRaw(s).replace(ISOLATES, '');
 
 const all = Object.assign({}, ...Object.values(AREAS).map((a) => a.en)) as Record<string, string | object>;
 const holesOf = (text: string) => [...new Set([...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))].sort();
@@ -45,6 +50,8 @@ test('a visitor’s tool calls as the server writes them read in Arabic, what th
     assert.equal(ar('Bash', { command: 'echo done' }), '$ echo done');
     assert.equal(toolText('x npm ERR! missing script'), 'x npm ERR! missing script');
     assert.equal(toolText('Stopped'), 'توقّف');
+    // A path keeps its own order in the Arabic sentence: "02-research.md", never "research.md-02".
+    assert.equal(toolRaw('Reading 02-research.md'), `يقرأ ${String.fromCharCode(0x2068)}02-research.md${String.fromCharCode(0x2069)}`);
   } finally {
     setLang('en');
   }

@@ -1,7 +1,7 @@
 import './ui.css';
 import type { ApprovalSummary, TicketDetail, TicketFile, TicketSummary } from '../../../shared/protocol';
 import { roleName } from '../../../shared/tickets';
-import { onLang, t, tn } from '../../i18n';
+import { ltrText, onLang, t, tn } from '../../i18n';
 import { ltr } from '../../i18n/dom';
 import { serverText } from '../../i18n/server';
 import { store } from '../../state';
@@ -44,7 +44,8 @@ const cutShort = (cut: boolean | undefined) => (cut ? `\n\n*(${t('tickets.cutSho
  */
 function render(src: string): HTMLElement {
   const md = markdownHtml(reviewHtml(src));
-  for (const el of md.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, blockquote, td, th')) el.setAttribute('dir', 'auto');
+  // A table too: an English chain log keeps When on the left, an Arabic one runs from the right.
+  for (const el of md.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, blockquote, table, td, th')) el.setAttribute('dir', 'auto');
   return md;
 }
 
@@ -111,12 +112,13 @@ export function openReview(deps: ReviewDeps) {
     const [title, sub] =
       it.kind === 'approval'
         ? [it.a.decision ?? it.a.id, [it.a.sent, it.a.ticket].filter(Boolean).join(' · ')]
-        : [it.t.title, [t('tickets.row.next', { stage: it.t.stage || it.t.status, role: nameOfRole(it.t.next) }), it.t.due ? t('tickets.row.due', { due: it.t.due }) : ''].filter(Boolean).join(' · ')];
+        : [it.t.title, [t('tickets.row.next', { stage: ltrText(it.t.stage || it.t.status), role: ltrText(nameOfRole(it.t.next)) }), it.t.due ? t('tickets.row.due', { due: ltrText(it.t.due) }) : ''].filter(Boolean).join(' · ')];
     const li = h(
       'li.rv-item',
       { class: key === current ? 'open' : '', title: it.kind === 'approval' ? `approvals/pending/${it.a.id}.md` : `work/${it.t.folder}/ticket.md` },
       h('div.rv-title', { dir: 'auto' }, title),
-      h('div.rv-sub', { dir: 'auto' }, sub),
+      // An approval's line is the file's own words; a ticket's is the window's ("stage → role"), in the page's direction.
+      h('div.rv-sub', it.kind === 'approval' ? { dir: 'auto' } : {}, sub),
     );
     li.addEventListener('click', () => void (it.kind === 'approval' ? openApproval(it.a.id) : openTicket(it.t.folder)));
     return li;
@@ -170,7 +172,7 @@ export function openReview(deps: ReviewDeps) {
     const { fields, rest } = body(f.text);
     const get = (k: string) => fields.find(([key]) => key === k)?.[1];
     const ticket = (get('ticket') ?? '').replace(/^work\//, '').replace(/\/+$/, '');
-    const link = ticket ? h('button.btn.rv-link', { type: 'button' }, t('tickets.openTicket', { id: ticket })) : '';
+    const link = ticket ? h('button.btn.rv-link', { type: 'button' }, t('tickets.openTicket', { id: ltrText(ticket) })) : '';
     if (link) link.addEventListener('click', () => void openTicket(ticket));
     const node = h(
       'div',
@@ -187,7 +189,7 @@ export function openReview(deps: ReviewDeps) {
   }
 
   async function openTicket(id: string) {
-    const d = await load<TicketDetail>(`/api/tickets/ticket?${q({ id })}`, t('tickets.theTicket', { id }));
+    const d = await load<TicketDetail>(`/api/tickets/ticket?${q({ id })}`, t('tickets.theTicket', { id: ltrText(id) }));
     if (!d) return;
     const { fields, rest } = body(d.text);
     const get = (k: string) => fields.find(([key]) => key === k)?.[1];

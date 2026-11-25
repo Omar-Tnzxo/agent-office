@@ -112,7 +112,7 @@ function textBlock(body: string): HTMLElement {
 /** What the session wrote, as Markdown, each block in its own direction (an Arabic reply right to left). */
 function said(body: string): HTMLElement {
   const md = transcriptMarkdown(body);
-  for (const el of md.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, blockquote, td, th')) el.setAttribute('dir', 'auto');
+  for (const el of md.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, blockquote, table, td, th')) el.setAttribute('dir', 'auto');
   return md;
 }
 

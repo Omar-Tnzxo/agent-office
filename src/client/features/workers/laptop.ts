@@ -64,19 +64,28 @@ function activeWindow(s: ScreenState, width: number, height: number, preferredRo
   return { top, rows, cols, first: contentFirst, last: contentLast };
 }
 
+const LRM = String.fromCharCode(0x200e);
+
 /**
  * A run with Arabic (or another right-to-left script) in it, in its cells: in the office's canvas font,
  * which has those letters, shaped and read in its own direction (a right-to-left one from the end of
  * its cells), and smaller if it would spill out of them, since its letters aren't a terminal's width.
  */
 function paintWords(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, width: number, size: number, weight: number) {
+  // The spaces round it stay cells: only the words are measured and drawn, after the ones it starts with.
+  const cell = width / Math.max(1, [...text].length);
+  const words = text.trim();
+  const lead = text.length - text.trimStart().length;
+  const room = width - (text.length - words.length) * cell;
   ctx.font = `${weight} ${size}px ${FONT}`;
-  const wide = ctx.measureText(text).width;
-  if (wide > width) ctx.font = `${weight} ${Math.max(4, (size * width) / wide)}px ${FONT}`;
-  dirFor(ctx, text);
+  const wide = ctx.measureText(words).width;
+  if (wide > room) ctx.font = `${weight} ${Math.max(4, (size * room) / wide)}px ${FONT}`;
+  // One that opens with a left-to-right mark (U+200E) is code with Arabic in it: it reads left to right.
+  if (words.startsWith(LRM)) ctx.direction = 'ltr';
+  else dirFor(ctx, words);
   const rtl = ctx.direction === 'rtl';
   ctx.textAlign = rtl ? 'right' : 'left';
-  ctx.fillText(text, rtl ? x + width : x, y);
+  ctx.fillText(words, rtl ? x + width - lead * cell : x + lead * cell, y);
   ctx.textAlign = 'left';
   ctx.direction = 'ltr';
 }

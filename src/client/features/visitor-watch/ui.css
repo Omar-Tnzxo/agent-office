@@ -24,7 +24,7 @@
 /* Cairo first: it only has Arabic letters (styles/arabic.css), so "يعدّل" is shaped in it and the path stays monospaced. */
 .vw-head .vw-cmd { min-width: 0; font: 700 13px Cairo, ui-monospace, 'SF Mono', Menlo, Consolas, monospace; overflow-wrap: anywhere; }
 .vw-sub { margin: 2px 0 0; margin-inline-start: 26px; font-size: 12px; font-weight: 700; color: var(--muted); }
-.vw-code { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: #1e1f2e; color: #e6e6f0; font: 12.5px/1.45 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.vw-code { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: #1e1f2e; color: #e6e6f0; font: 12.5px/1.45 Cairo, ui-monospace, 'SF Mono', Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .vw-code.out { color: #c9cbe0; }
 .vw-code.err { color: #ffb3c0; box-shadow: inset 3px 0 0 #ff5c7a; }
 .vw-code.clamped { max-height: calc(1.45em * 14 + 16px); overflow: hidden; }

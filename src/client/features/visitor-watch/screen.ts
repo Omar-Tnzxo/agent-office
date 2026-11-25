@@ -33,6 +33,9 @@ const OFFICE_WORDS = new Set<ScreenLine['k']>(['do', 'ask', 'err']);
  * it's drawn from the right edge (see paintWords in features/workers/laptop.ts), the way it reads.
  */
 const rowText = (text: string) => (isRtl() && hasRtl(text) ? text.padEnd(COLS) : text);
+/** A changed line or a command's output stays left to right, Arabic in it or not: a left-to-right mark (U+200E) says so to the painter. */
+const CODE = new Set<ScreenLine['k']>(['add', 'del', 'out']);
+const codeText = (text: string) => (hasRtl(text) ? ` ${String.fromCharCode(0x200e)}${text.slice(1)}` : text);
 
 /** `text` cut to `n` characters (by code point), with an ellipsis when it was longer. */
 export function fit(text: string, n: number): string {
@@ -76,7 +79,7 @@ export function screenRows(lines: readonly ScreenLine[], room: number): Run[][] 
     const flags = BOLD.has(l.k) ? 1 : 0;
     const text = OFFICE_WORDS.has(l.k) ? toolText(l.t) : l.t;
     const texts = l.k === 'say' ? wrap(text, COLS - 1, Math.min(SAY_ROWS, room - rows.length)) : [fit(text, COLS - 1)];
-    rows.unshift(...texts.map((s): Run[] => [[rowText(` ${s}`), fg, -1, flags]]));
+    rows.unshift(...texts.map((s): Run[] => [[CODE.has(l.k) ? codeText(` ${s}`) : rowText(` ${s}`), fg, -1, flags]]));
   }
   return rows;
 }
@@ -89,7 +92,9 @@ export function visitorScreen(v: Visitor, version: number): ScreenState {
   const head = fit(` ${v.title}`, COLS - width - 2);
   const gap = ' '.repeat(Math.max(1, COLS - [...head].length - width - 1));
   // Right to left, the bar is mirrored: the state on the left, the name on the right, each in cells of its own.
-  const bar: Run[] = isRtl() ? [[` ${label}`, 0, status.bg, 1], [gap, 0, status.bg, 1], [`${head.slice(1)} `, 0, status.bg, 1]] : [[`${head}${gap}${label} `, 0, status.bg, 1]];
+  const bar: Run[] = isRtl()
+    ? [[' ', 0, status.bg, 1], [label, 0, status.bg, 1], [gap, 0, status.bg, 1], [`${head.slice(1)} `, 0, status.bg, 1]]
+    : [[`${head}${gap}${label} `, 0, status.bg, 1]];
   const lines = v.screen?.length ? v.screen : [{ k: 'do' as const, t: v.status === 'needs_input' ? t('watch.screen.waitingLine') : (v.activity ?? t('watch.screen.workingLine')) }];
   const body = screenRows(lines, ROWS - 2);
   const foot: Run[] = [[fit(` ${v.folder}${v.branch ? ` (${v.branch})` : ''}`, COLS).padEnd(COLS), 7, 0, 4]];
