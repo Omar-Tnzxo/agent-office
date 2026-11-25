@@ -68,7 +68,8 @@ export function setLang(l: Lang) {
   if (l === current) return;
   current = l;
   applyDocument();
-  listeners.forEach((fn) => fn(l));
+  // A copy: a listener may add another (Settings opens itself again), which must wait for the next switch.
+  [...listeners].forEach((fn) => fn(l));
 }
 
 /** Hears every switch of language; hands back what stops it. */
@@ -147,7 +148,8 @@ export function textIn(l: Lang, key: TextKey, vars?: Vars): string {
 const LRI = String.fromCharCode(0x2066);
 const PDI = String.fromCharCode(0x2069);
 export function ltrText(text: string): string {
-  return LRI + text + PDI;
+  // An English page reads left to right anyway, and copied text stays free of the marks.
+  return current === 'ar' ? LRI + text + PDI : text;
 }
 
 /**

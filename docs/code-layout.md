@@ -46,6 +46,14 @@ They're in `core/registry.ts`, and each is a field of `ctx`. Every registration 
 
 `style.css` is the 3D office's sheet. It pulls in `styles/base.css` (the colors, the reset, panels, buttons and the window frame, which the 2D view's `lite.css` loads too), `styles/hud.css` and `styles/loading.css`. Every other sheet sits next to its module and comes in with it. A module's sheet loads in no fixed order against `base.css`, so a module rule that overrides a base rule of the same specificity has to be more specific, or live at the end of `base.css` with the others there.
 
+### Languages
+
+The page's words are in `i18n/`: English and Arabic, picked per viewer in ⚙️ Settings and kept in the browser (`agent-office.lang`). `t('key', vars)` is a phrase in the language now and `tn('key', n)` one that changes with a count (Arabic has six forms, from Intl.PluralRules); `num` and `time` keep Latin digits. Each area of the page has a file in `i18n/strings/` with its English (`en`) and its Arabic (`ar`), its keys starting with the area's name, and `i18n/dict.ts` puts them together.
+
+To add a phrase: put it in its area's `en`, then in `ar` beside it. The Arabic is typed from the English, so the typecheck fails until it's there, and `tests/i18n.test.ts` checks every area has the same keys in both, the same `{holes}`, all six Arabic plural forms and no long dashes. A new area is a new file in `strings/` and a line in `AREAS`, `EN` and `AR` in `dict.ts`.
+
+A switch applies at once: `onLang(fn)` hears it, and whatever stays on screen redraws (windows are built in the language they open in). A table of labels made at load uses `labels()`, which reads the language each time. In Arabic the page is `dir="rtl"`, so CSS uses logical properties (`margin-inline-start`, `inset-inline-end`, `text-align: start`); code, paths, branches and commands stay left to right with `ltr()` (an element) or `ltrText()` (plain text), and `code`, `pre`, `kbd`, `.ltr` and terminals are left to right already (`styles/arabic.css`). Canvas labels use `FONT` and `dirFor(ctx, text)` from `i18n/canvas.ts`, so Arabic is shaped in the bundled Cairo (`fonts/cairo`, with its OFL licence). Words the server sends (toasts, errors, what someone is doing) stay English on the wire and are matched in `i18n/server.ts`; what an agent is told or writes is never translated.
+
 ## Server
 
 - **`server.ts`** is the composition root: `startServer` builds the office's context a stage at a time, starts the hook server, opens the floors, and hands the context to the HTTP handler and the WebSocket.

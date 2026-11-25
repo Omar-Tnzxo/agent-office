@@ -1,7 +1,12 @@
-export {}; // a module, so its names don't clash with the other pages' scripts
+import { onLang, t } from './i18n';
+import { installPageLanguage, langSwitch, rich } from './i18n/dom';
+import { serverText } from './i18n/server';
 
 // An invite link, /join#<token>: make your own account, then walk in. The token rides in the
 // fragment, so it never reaches a server log or a Referer header.
+installPageLanguage('pages.join.title');
+document.querySelector('main.card')!.prepend(langSwitch());
+
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const token = location.hash.slice(1);
 const form = $<HTMLFormElement>('form');
@@ -11,10 +16,26 @@ const again = $<HTMLInputElement>('again');
 const submit = $<HTMLButtonElement>('submit');
 const error = $('error');
 
-function fail(msg: string) {
-  $('sub').textContent = '';
+/** What the page says now that isn't in the .html: written again after a switch of language. */
+let paintInvite = () => {};
+let paintError = () => {};
+onLang(() => {
+  paintInvite();
+  paintError();
+});
+
+/** Shows an error, `say` giving its words in the language at the time. */
+function showError(say: (() => string) | undefined) {
+  paintError = () => void (error.textContent = say ? say() : '');
+  paintError();
+}
+
+function fail(say: () => string) {
+  const sub = $('sub');
+  delete sub.dataset.i18n;
+  sub.textContent = '';
   form.hidden = true;
-  error.textContent = msg;
+  showError(say);
   $('login').hidden = false;
 }
 
@@ -24,38 +45,47 @@ async function post(body: Record<string, unknown>): Promise<{ ok: boolean; body:
 }
 
 async function peek() {
-  if (!token) return fail('This link is missing its invite code. Ask whoever sent it for the whole link.');
+  if (!token) return fail(() => t('pages.join.noCode'));
   try {
     const r = await post({ peek: true });
-    if (!r.ok) return fail(r.body.error ?? 'This invite link does not work.');
-    const { name: invited, role, by, project } = r.body as { name?: string; role: string; by: string; project: string };
-    $('title').textContent = `Join the ${project} office`;
-    const sub = $('sub');
-    sub.replaceChildren(`${by} invited you${role === 'admin' ? ' as an ' : '. '}`);
-    if (role === 'admin') {
-      const pill = document.createElement('span');
-      pill.className = 'role';
-      pill.textContent = 'admin';
-      sub.append(pill, '.');
+    if (!r.ok) {
+      const said: string | undefined = r.body.error;
+      return fail(() => (said ? serverText(said) : t('pages.join.broken')));
     }
-    sub.append(' Make your own account to come in.');
+    const { name: invited, role, by, project } = r.body as { name?: string; role: string; by: string; project: string };
+    const title = $('title');
+    const sub = $('sub');
+    // Theirs from here on, not the .html's.
+    delete title.dataset.i18n;
+    delete sub.dataset.i18n;
+    paintInvite = () => {
+      title.textContent = t('pages.join.heading', { project });
+      if (role === 'admin') {
+        const pill = document.createElement('span');
+        pill.className = 'role';
+        pill.textContent = t('pages.join.admin');
+        sub.replaceChildren(...rich('pages.join.byAdmin', { role: pill }, { by }));
+      } else sub.replaceChildren(t('pages.join.by', { by }));
+      sub.append(' ', t('pages.join.makeAccount'));
+      if (invited) name.title = t('pages.join.nameTitle');
+    };
+    paintInvite();
     if (invited) {
       name.value = invited;
       name.readOnly = true;
-      name.title = 'The name you were invited under';
     }
     form.hidden = false;
     (invited ? password : name).focus();
   } catch {
-    fail('Server unreachable.');
+    fail(() => t('common.serverUnreachable'));
   }
 }
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  error.textContent = '';
+  showError(undefined);
   if (password.value !== again.value) {
-    error.textContent = "Those passwords don't match";
+    showError(() => t('pages.join.mismatch'));
     again.select();
     return;
   }
@@ -63,7 +93,8 @@ form.addEventListener('submit', async (e) => {
   try {
     const r = await post({ name: name.value.trim(), password: password.value });
     if (!r.ok) {
-      error.textContent = r.body.error ?? 'Could not make your account';
+      const said: string | undefined = r.body.error;
+      showError(() => (said ? serverText(said) : t('pages.join.failed')));
       return;
     }
     try {
@@ -73,7 +104,7 @@ form.addEventListener('submit', async (e) => {
     }
     location.replace('/');
   } catch {
-    error.textContent = 'Server unreachable';
+    showError(() => t('common.serverUnreachable'));
   } finally {
     submit.disabled = false;
   }

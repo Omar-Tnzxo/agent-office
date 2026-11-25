@@ -1,5 +1,6 @@
 import type { Net } from './net';
 import { store } from './state';
+import { t } from './i18n';
 
 interface Conn {
   pc: RTCPeerConnection;
@@ -89,11 +90,11 @@ export class Voice {
   }
 
   private async join(muted: boolean): Promise<string | null> {
-    if (!window.isSecureContext) return 'Voice needs HTTPS (or localhost). Ask whoever runs the office to enable TLS.';
+    if (!window.isSecureContext) return t('pages.voice.needsHttps');
     try {
       this.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     } catch (err) {
-      return `Microphone unavailable: ${(err as Error).message}`;
+      return t('pages.voice.noMic', { why: (err as Error).message });
     }
     this.muted = muted;
     this.talking = false;
@@ -157,11 +158,11 @@ export class Voice {
 
   async startShare(): Promise<string | null> {
     if (this.screen) return null;
-    if (!window.isSecureContext || !navigator.mediaDevices?.getDisplayMedia) return 'Screen sharing needs HTTPS (or localhost).';
+    if (!window.isSecureContext || !navigator.mediaDevices?.getDisplayMedia) return t('pages.voice.shareNeedsHttps');
     try {
       this.screen = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 }, audio: false });
     } catch (err) {
-      return (err as Error).name === 'NotAllowedError' ? null : `Could not share: ${(err as Error).message}`;
+      return (err as Error).name === 'NotAllowedError' ? null : t('pages.voice.shareFailed', { why: (err as Error).message });
     }
     const track = this.screen.getVideoTracks()[0];
     track.contentHint = 'detail';

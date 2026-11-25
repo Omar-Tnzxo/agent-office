@@ -142,3 +142,39 @@ test('every rule for the server’s words names a phrase with the holes it fills
     assert.ok(pattern.source.startsWith('^') && pattern.source.endsWith('$'), `${pattern} should match the whole message`);
   }
 });
+
+test('the server’s words in Arabic: names and numbers carried over, the right rule first, English untouched', async () => {
+  const { serverText } = await import('../src/client/i18n/server.js');
+  const { setLang, textIn } = await import('../src/client/i18n/index.js');
+  const LONG_DASH = String.fromCharCode(0x2014);
+  setLang('ar');
+  try {
+    assert.equal(serverText('Ada sent Bob home'), 'صرف Ada العامل Bob');
+    assert.equal(serverText('Omar hired Ada for issue #12'), 'وظّف Omar العامل Ada لـ Issue #12');
+    assert.equal(serverText('🎉 Omar merged PR #7'), '🎉 دمج Omar طلب الدمج PR #7');
+    assert.equal(serverText(`Omar is upgrading the office ${LONG_DASH} it restarts when the new version is built`), 'يحدّث Omar المكتب: سيُعاد تشغيله حين يُبنى الإصدار الجديد');
+    assert.equal(serverText('🏠 Omar sent Ada home: done with issue #3'), '🏠 صرف Omar العامل Ada: done with issue #3');
+    assert.equal(serverText('Wrong password'), 'كلمة المرور غير صحيحة');
+    assert.equal(serverText("The office was started with --max-workers 4, so the limit can't go above 4"), 'شُغّل المكتب بالخيار --max-workers 4، فلا يمكن أن يتجاوز الحد 4');
+    assert.equal(serverText("💻 in Ada's terminal"), '💻 في طرفية Ada');
+    // One no rule knows stays as the server wrote it.
+    assert.equal(serverText('Something brand new happened'), 'Something brand new happened');
+    // Each rule's own message, made from its English with a name in every hole (and the server's long
+    // dash where its pattern has one), is caught by that rule and not by one before it.
+    for (const [pattern, key, names] of SERVER_RULES) {
+      let english = textIn('en', key, Object.fromEntries(names.map((n) => [n, n === 'n' ? '12' : 'Ada'])));
+      if (pattern.source.includes(LONG_DASH) && english.includes(': ')) {
+        const at = english.lastIndexOf(': ');
+        english = `${english.slice(0, at)} ${LONG_DASH} ${english.slice(at + 2)}`;
+      }
+      const first = SERVER_RULES.find(([p]) => p.test(english));
+      assert.equal(first?.[1], key, `"${english}" is caught by ${first?.[1] ?? 'no rule'}, not ${key}`);
+      const arabic = serverText(english);
+      assert.notEqual(arabic, english, `${key} isn't said in Arabic`);
+      if (names.length) assert.ok(arabic.includes(names.includes('n') ? '12' : 'Ada'), `${key} lost its holes: ${arabic}`);
+    }
+  } finally {
+    setLang('en');
+  }
+  assert.equal(serverText('Ada sent Bob home'), 'Ada sent Bob home');
+});
