@@ -1,6 +1,6 @@
 // Which desk a visitor sits at, and which lobby spot is its own: worked out afresh from who's there
 // each time the visitors, the workers or the floor change, and sticky (what each had last time goes
-// back in). No three.js, so tests/visitor-seats.test.ts runs it as it is.
+// back in), and whether it's there. No three.js, so tests/visitor-seats.test.ts runs it as it is.
 import { builtDesks } from '../../../shared/layout';
 import type { Visitor } from '../../../shared/protocol';
 
@@ -54,6 +54,26 @@ export function assignDesks(visitors: readonly Pick<Visitor, 'id' | 'status' | '
   }
   for (const v of visitors) if (resting(v)) keep(v.id);
   return out;
+}
+
+/** Where a visitor is and where it's to be, as inPlace reads it. */
+export interface Placement {
+  walking: boolean;
+  /** The desk it's to sit at, or none: its lobby spot. */
+  goal: string | undefined;
+  /** The desk it's sitting at. */
+  desk: string | undefined;
+  /** Its own lobby spot, and the one it's standing at (null: it isn't standing). */
+  spot: number;
+  standsAt: number | null;
+}
+
+/**
+ * Whether a visitor is where it's to be: in the chair at its desk, or standing at its own lobby spot.
+ * Standing at a spot it had before isn't: the one given that spot now would be put on top of it.
+ */
+export function inPlace(p: Placement): boolean {
+  return !p.walking && (p.goal ? p.desk === p.goal : p.standsAt === p.spot);
 }
 
 /**

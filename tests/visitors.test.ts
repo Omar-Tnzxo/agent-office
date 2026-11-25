@@ -177,19 +177,66 @@ test("the office's first look after nobody was in it says so: whoever it finds w
     utimesSync(path.join(root, `p/${UUID(n)}.jsonl`), at / 1000, at / 1000);
   };
   const sent: [number, boolean][] = [];
-  const visitors = new Visitors({ root }, { floors: () => [{ id: 'f1', dir }], workerSessions: () => new Set(), watched: () => true, send: (_floor, state, caughtUp) => void sent.push([state.visitors.length, caughtUp]) });
+  let watched = true;
+  const visitors = new Visitors({ root }, { floors: () => [{ id: 'f1', dir }], workerSessions: () => new Set(), watched: () => watched, send: (_floor, state, caughtUp) => void sent.push([state.visitors.length, caughtUp]) });
   session(1, now);
   await visitors.look(now);
   // One that turns up while the office is looking has only just come.
   session(2, now + 4000);
-  await visitors.look(now + 4000);
+  await visitors.tick(now + 4000);
   // Nobody in the office for a minute, so nobody looked: the one found after it was there already.
+  watched = false;
+  for (let s = 8000; s < 64_000; s += 4000) await visitors.tick(now + s);
+  watched = true;
   session(3, now + 64_000);
-  await visitors.look(now + 64_000);
+  await visitors.tick(now + 64_000);
   assert.deepEqual(sent, [
     [1, true],
     [2, false],
     [3, true],
+  ]);
+});
+
+test('a look that comes late while people watch is no catch-up, and one that finds nothing new sends nothing', async (t) => {
+  const { root, put } = projects(t);
+  const now = Date.now();
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'ao-floor-'));
+  const elsewhere = mkdtempSync(path.join(os.tmpdir(), 'ao-elsewhere-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  t.after(() => rmSync(elsewhere, { recursive: true, force: true }));
+  const session = (n: number, cwd: string, at: number) => {
+    put(`p/${UUID(n)}.jsonl`, lines(user('visit', { entrypoint: 'cli', cwd }), assistant([toolUse('Bash', { command: 'ls' })], 'tool_use')), 0);
+    utimesSync(path.join(root, `p/${UUID(n)}.jsonl`), at / 1000, at / 1000);
+  };
+  const sent: [number, boolean][] = [];
+  let watched = true;
+  const visitors = new Visitors(
+    { root },
+    { floors: () => [{ id: 'f1', dir }], workerSessions: () => new Set(), watched: () => watched, send: (_floor, state, caughtUp) => void sent.push([state.visitors.length, caughtUp]) },
+  );
+  // One outside every floor's checkout has its folder's git origin asked: the look waits on git, and
+  // the ticks that come meanwhile find it busy.
+  session(1, elsewhere, now);
+  const slow = visitors.look(now);
+  await visitors.tick(now + 4000);
+  await visitors.tick(now + 8000);
+  await slow;
+  // Long after the look began, but people watched all along: the one found now has only just come.
+  session(2, dir, now + 20_000);
+  await visitors.tick(now + 20_000);
+  // Nothing new: nothing sent, whether or not anyone was in the office meanwhile.
+  await visitors.tick(now + 24_000);
+  watched = false;
+  await visitors.tick(now + 28_000);
+  watched = true;
+  await visitors.tick(now + 32_000);
+  // That look used up the missed one: the next one to find someone new isn't a catch-up.
+  session(3, dir, now + 36_000);
+  await visitors.tick(now + 36_000);
+  assert.deepEqual(sent, [
+    [1, true],
+    [2, false],
+    [3, false],
   ]);
 });
 

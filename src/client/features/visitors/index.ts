@@ -19,7 +19,7 @@ import { SubagentCrowd, Worker, subagentColor } from '../../world/character';
 import type { DeskView, Interactable } from '../../world/types';
 import { SHOWN as CHAIR_SHOWN, SIZE as CHAIR_SIZE, spot as chairSpot } from '../subagents';
 import { Laptop } from '../workers/laptop';
-import { assignDesks, assignSpots, visitorDesks, wantsDesk } from './seats';
+import { assignDesks, assignSpots, inPlace, visitorDesks, wantsDesk } from './seats';
 import { VISITOR_SPOTS, subagentSpot } from './spots';
 import { FEET, SPACING, stepWalk, walkAlong, type Walk } from './walk';
 
@@ -52,9 +52,9 @@ interface VisitorView {
   id: string;
   model: Worker;
   status: string;
-  /** Its own lobby spot, of VISITOR_SPOTS, and whether it's standing there now. */
+  /** Its own lobby spot, of VISITOR_SPOTS, and the one it's standing at now (null: it isn't standing). */
   spot: number;
-  standing: boolean;
+  standsAt: number | null;
   /** The desk it's to sit at (it's there, or on its way), or none: its lobby spot. */
   goal: string | undefined;
   /** The desk it's sitting at. */
@@ -125,7 +125,9 @@ export function installVisitors(ctx: Ctx) {
     view.walk = null;
     view.model.walking = false;
     view.model.root.visible = true;
-    view.standing = false;
+    view.standsAt = null;
+    // Up and about: aimed at itself again (see sit).
+    view.model.root.userData.interact = view.it;
     view.crowd?.dispose();
     view.crowd = null;
     if (view.desk) {
@@ -149,7 +151,8 @@ export function installVisitors(ctx: Ctx) {
     view.ring.position.set(x, 0, z);
     view.ring.rotation.y = rotY;
     view.crowd = new SubagentCrowd(view.ring, subagentSpot, SUBAGENT_SIZE);
-    view.standing = true;
+    view.standsAt = view.spot;
+    root.userData.interact = view.it;
     view.it.x = x;
     view.it.z = z;
   }
@@ -158,6 +161,8 @@ export function installVisitors(ctx: Ctx) {
   function sit(view: VisitorView, desk: DeskView) {
     const { root } = view.model;
     desk.seatAnchor.add(root);
+    // Aimed at in its chair, it's the desk you aim at: its own prompt, a worker to hire there.
+    delete root.userData.interact;
     root.position.set(0, 0, 0);
     root.rotation.set(0, 0, 0);
     root.scale.setScalar(1);
@@ -180,8 +185,8 @@ export function installVisitors(ctx: Ctx) {
 
   /** The desk `view` is to sit at, if it's there to sit at. */
   const goalDesk = (view: VisitorView) => (view.goal ? ctx.world().desks.get(view.goal) : undefined);
-  /** Whether it's where it's to be: in its chair, or at its spot. */
-  const settled = (view: VisitorView) => !view.walk && (view.goal ? view.desk?.def.id === view.goal : view.standing);
+  /** Whether it's where it's to be: in its chair, or at its own spot (see inPlace). */
+  const settled = (view: VisitorView) => inPlace({ walking: !!view.walk, goal: view.goal, desk: view.desk?.def.id, spot: view.spot, standsAt: view.standsAt });
 
   /** There at once, wherever it was: nobody watched it go. */
   function place(view: VisitorView) {
@@ -194,7 +199,7 @@ export function installVisitors(ctx: Ctx) {
 
   /** Sets off for where it's to be, from wherever it is: its chair, its spot, or part way to somewhere else. */
   function setOff(view: VisitorView) {
-    // Half way up onto a chair: it lands first, and sets off from there (see the tick).
+    // Half way up onto a chair: it lands first, and sets off from there, sitting only if the chair is still its own (see the tick).
     if (view.walk?.up) return;
     const { nav } = ctx.world();
     const { root } = view.model;
@@ -308,15 +313,17 @@ export function installVisitors(ctx: Ctx) {
       if (!view) {
         const model = new Worker(APP[v.app], subagentColor(v.id));
         const it: Interactable = { kind: 'visitor', x: 0, z: 0, radius: 0.6, seatId: v.id };
-        // Aimed at wherever it is, in a chair too: before the desk it sits at.
+        // Aimed at while it stands or walks; in a chair, the desk is (see sit).
         model.root.userData.interact = it;
         noOutline(model.root);
-        view = { id: v.id, model, status: '', spot: 0, standing: false, goal: undefined, desk: null, walk: null, laptop: null, ring: new THREE.Object3D(), crowd: null, it };
+        view = { id: v.id, model, status: '', spot: 0, standsAt: null, goal: undefined, desk: null, walk: null, laptop: null, ring: new THREE.Object3D(), crowd: null, it };
         views.set(v.id, view);
       }
-      const moved = isNew || goal !== view.goal;
+      const spot = spots.get(v.id) ?? 0;
+      // A new desk, or none and a new spot: it goes there.
+      const moved = isNew || goal !== view.goal || (!goal && spot !== view.spot);
       view.goal = goal;
-      view.spot = spots.get(v.id) ?? 0;
+      view.spot = spot;
       // A desk walled up under it: there's no walking out of that.
       const walled = !!view.desk && !seatBuilt(view.desk.def.id);
       const desk = goalDesk(view);
@@ -341,14 +348,14 @@ export function installVisitors(ctx: Ctx) {
   ctx.messages.on('welcome', () => void (arriving = true), 'before');
   ctx.messages.on('floor.enter', () => void (arriving = true), 'before');
   // The office's first look after nobody was in it: they were at work already, so they're in their seats,
-  // and in the ones they'd have on a page that had only just been loaded (what the last list said was stale).
+  // and in the ones they'd have on a page that had only just been loaded (what the last list said was
+  // stale). Their lobby spots stay: the ones still listed are standing at them, and a newcomer takes a
+  // free one, so nobody is put on top of anybody (see assignSpots).
   ctx.messages.on(
     'visitors',
     (msg) => {
       arriving = !!msg.caughtUp;
-      if (!arriving) return;
-      desks = new Map();
-      spots = new Map();
+      if (arriving) desks = new Map();
     },
     'before',
   );
@@ -372,7 +379,13 @@ export function installVisitors(ctx: Ctx) {
         } else {
           // There: into its chair, or at its spot. Told to go elsewhere on the last hop, it sets off again.
           view.walk = null;
-          if (w.to) sit(view, w.to);
+          const chair = w.to;
+          if (chair && w.up && (chair.def.id !== view.goal || !seatBuilt(chair.def.id) || store.workerAtDesk(chair.def.id))) {
+            // Its chair isn't its own any more (a worker was hired there, the row walled up, another desk
+            // is its now): back down to the floor where it hopped up from, and on from there (setOff below).
+            const { root } = model;
+            view.walk = walkAlong([[w.up.from.x, w.up.from.z]], null, w.face, root.rotation.y, 0, { from: root.position.clone(), scale: root.scale.x, p: 0 });
+          } else if (chair) sit(view, chair);
           else stand(view);
           if (!settled(view)) setOff(view);
           const v = store.visitors.visitors.find((x) => x.id === view.id);

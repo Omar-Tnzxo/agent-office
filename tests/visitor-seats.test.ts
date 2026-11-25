@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DESKS, WING_DESKS, nextFreeSeat } from '../src/shared/layout.js';
 import type { Visitor } from '../src/shared/protocol.js';
-import { assignDesks, assignSpots, visitorDesks, wantsDesk } from '../src/client/features/visitors/seats.js';
+import { assignDesks, assignSpots, inPlace, visitorDesks, wantsDesk } from '../src/client/features/visitors/seats.js';
 
 // Which desk a visitor sits at, and its lobby spot (features/visitors/seats.ts): workers first, the
 // same answer for the same floor, and nobody moved who doesn't have to be.
@@ -118,4 +118,24 @@ test('a lobby spot is kept for as long as the visitor is listed, and a newcomer 
   // No more spots than there are.
   assert.equal(assignSpots(['a', 'b', 'c'], new Map(), 2).size, 2);
   assert.deepEqual(Object.fromEntries(assignSpots(['a', 'b'], new Map([['a', 5], ['b', 5]]), 4)), { a: 0, b: 1 });
+});
+
+test('after a catch-up, nobody is put on a spot someone is still standing at', () => {
+  // A stale list had a, b and c standing in the lobby; the catch-up lists b, c and d.
+  const stale = assignSpots(['a', 'b', 'c'], new Map(), 8);
+  // a is gone; b and c are still standing at the spots the stale list gave them.
+  const standing = new Map([...stale].filter(([id]) => id !== 'a'));
+  const fresh = assignSpots(['b', 'c', 'd'], stale, 8);
+  const place = (id: string) => ({ walking: false, goal: undefined, desk: undefined, spot: fresh.get(id)!, standsAt: standing.get(id) ?? null });
+  // b and c stay where they stand, and d's spot is one nobody is at.
+  assert.ok(inPlace(place('b')) && inPlace(place('c')));
+  assert.ok(![...standing.values()].includes(fresh.get('d')!));
+  assert.equal(new Set(fresh.values()).size, fresh.size);
+  // Had the spots been dealt afresh (b 0, c 1, d 2), c would stand at 2 and d be put there too:
+  // standing at a spot that's no longer its own isn't in place, so it moves.
+  assert.equal(inPlace({ walking: false, goal: undefined, desk: undefined, spot: 1, standsAt: 2 }), false);
+  // At a desk: in place only in the chair it's to sit in, and never while on its way.
+  assert.equal(inPlace({ walking: false, goal: 'desk-3', desk: 'desk-3', spot: 0, standsAt: null }), true);
+  assert.equal(inPlace({ walking: false, goal: 'desk-3', desk: 'desk-5', spot: 0, standsAt: null }), false);
+  assert.equal(inPlace({ walking: true, goal: undefined, desk: undefined, spot: 0, standsAt: 0 }), false);
 });

@@ -12,8 +12,6 @@ import { SessionScanner, type Sighting } from './scan.js';
 
 /** How often the projects folder is looked over, while anyone is in the office. */
 const EVERY_MS = 4000;
-/** A look this long after the last one comes after nobody was looking: what it finds was there already. */
-const CAUGHT_UP_MS = 3 * EVERY_MS;
 /** A floor shows at most this many visitors. */
 export const MAX_VISITORS = 8;
 /** A folder's git origin is asked again after this long. */
@@ -147,8 +145,12 @@ export class Visitors {
   private byFloor = new Map<string, Visitor[]>();
   private sent = new Map<string, string>();
   private busy = false;
-  /** When the projects folder was last looked over. */
-  private lookedAt = 0;
+  /**
+   * Whether a look was missed because nobody was in the office since the last one began (or none has
+   * begun yet): what the next look finds was there already. Never set by a slow look, so a look that
+   * comes late while people watch isn't taken for one after nobody did.
+   */
+  private unwatched = true;
   /** Every session the office's workers have had: one a worker left behind (a /clear) is no visitor either. */
   private workers = new Set<string>();
 
@@ -172,11 +174,16 @@ export class Visitors {
 
   start() {
     if (this.opts.off || this.timer) return;
-    this.timer = setInterval(() => {
-      if (this.deps.watched()) void this.look();
-    }, EVERY_MS);
+    this.timer = setInterval(() => void this.tick(), EVERY_MS);
     this.timer.unref();
     void this.look();
+  }
+
+  /** Every EVERY_MS: a look while anyone is in the office, else a note that one was missed. */
+  tick(now = Date.now()): Promise<void> {
+    if (this.deps.watched()) return this.look(now);
+    this.unwatched = true;
+    return Promise.resolve();
   }
 
   stop() {
@@ -194,9 +201,9 @@ export class Visitors {
   async look(now = Date.now()): Promise<void> {
     if (this.busy || this.opts.off) return;
     this.busy = true;
-    // Nobody was in the office to look for (see start), or it has only just opened.
-    const caughtUp = now - this.lookedAt > CAUGHT_UP_MS;
-    this.lookedAt = now;
+    // Nobody was in the office to look for (see tick), or it has only just opened.
+    const caughtUp = this.unwatched;
+    this.unwatched = false;
     try {
       for (const id of this.deps.workerSessions()) this.workers.add(id);
       const floors = this.deps.floors();
