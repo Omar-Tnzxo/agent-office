@@ -4,6 +4,7 @@
  */
 import type { DeskKey } from '../interaction';
 import { h } from '../ui/dom';
+import { t } from '../i18n';
 import type { Interactable } from '../world/types';
 import type { Hint } from './context';
 
@@ -23,7 +24,7 @@ export function hintTitle(text: string) {
 
 /** A board you open with E. */
 export function boardHint(name: string): Hint {
-  return { k: '', parts: [hintTitle(name), key('E', 'Open')] };
+  return { k: '', parts: [hintTitle(name), key('E', t('hud.open'))] };
 }
 
 /** A use that's E only: every other key does nothing there. */

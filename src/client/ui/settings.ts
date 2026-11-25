@@ -12,45 +12,50 @@ import { agentFields, choiceLabel, officeChoice } from './provider';
 import { openPromptEditor, rewrittenPrompts } from './prompts';
 import { outsideSetting } from './settings-sky';
 import { choiceRow } from './settings-rows';
+import { lang, LANG_NAME, LANGS, ltrText, onLang, setLang, t, tn, type TextKey } from '../i18n';
 
-const VIEWS: [ViewMode, string, string][] = [
-  ['first', '👀 First person', 'See through your own eyes. Click the office to look around with the mouse and click things to use them. Esc frees the mouse.'],
-  ['third', '🎥 Third person', 'Follow your character from behind. Drag to orbit the camera, scroll to zoom, and click things to use them.'],
+const VIEWS: [ViewMode, TextKey, TextKey][] = [
+  ['first', 'settings.view.first', 'settings.view.first.note'],
+  ['third', 'settings.view.third', 'settings.view.third.note'],
 ];
 
-const THEME_LABEL: Record<ThemePick, string> = { auto: '📅 By the calendar', halloween: '🎃 Halloween', christmas: '🎄 Christmas', off: 'Off' };
+const THEME_LABEL: Record<ThemePick, TextKey> = { auto: 'settings.theme.auto', halloween: 'settings.theme.halloween', christmas: 'settings.theme.christmas', off: 'common.off' };
 
-const WEBHOOK_NAME: Record<WebhookKind, string> = { slack: 'Slack', discord: 'Discord', other: 'a webhook' };
+const WEBHOOK_NAME: Record<WebhookKind, () => string> = { slack: () => 'Slack', discord: () => 'Discord', other: () => t('settings.hook.other') };
 
 /** The categories down the side of ⚙️ Settings. */
 export type SettingsPane = 'you' | 'sound' | 'notify' | 'building' | 'workers';
 
-const PANES: { id: SettingsPane; icon: string; label: string; blurb: string }[] = [
-  { id: 'you', icon: '🧍', label: 'You', blurb: 'How you look, how you see the office, and how you’re signed in.' },
-  { id: 'sound', icon: '🔊', label: 'Sound & voice', blurb: 'How loud the office is for you, and how voice chat works.' },
-  { id: 'notify', icon: '🔔', label: 'Notifications', blurb: 'Hear about a worker that needs someone, or finished, while you’re somewhere else.' },
-  { id: 'building', icon: '🏢', label: 'Building', blurb: 'The map, the decorations, the sky, the dog, and where new floors are cloned.' },
-  { id: 'workers', icon: '🤖', label: 'Workers', blurb: 'What workers start on, how many run at once, when they go home and what the office tells them.' },
+const PANES: { id: SettingsPane; icon: string; label: TextKey; blurb: TextKey }[] = [
+  { id: 'you', icon: '🧍', label: 'settings.pane.you', blurb: 'settings.pane.you.blurb' },
+  { id: 'sound', icon: '🔊', label: 'settings.pane.sound', blurb: 'settings.pane.sound.blurb' },
+  { id: 'notify', icon: '🔔', label: 'settings.pane.notify', blurb: 'settings.pane.notify.blurb' },
+  { id: 'building', icon: '🏢', label: 'settings.pane.building', blurb: 'settings.pane.building.blurb' },
+  { id: 'workers', icon: '🤖', label: 'settings.pane.workers', blurb: 'settings.pane.workers.blurb' },
 ];
 
 /** Who a setting is for, shown by its name: some are yours alone, some the whole office's. */
 type Scope = 'you' | 'floor' | 'office';
-const SCOPE: Record<Scope, [label: string, title: string]> = {
-  you: ['Just you', 'Only for you, kept in this browser'],
-  floor: ['This floor', 'The same for everyone on this floor'],
-  office: ['Everyone', 'The same for everyone in the building'],
+const SCOPE: Record<Scope, [label: TextKey, title: TextKey]> = {
+  you: ['settings.scope.you', 'settings.scope.you.title'],
+  floor: ['settings.scope.floor', 'settings.scope.floor.title'],
+  office: ['settings.scope.office', 'settings.scope.office.title'],
 };
 
 /** One setting: its name and who it's for, then whatever sets it. */
-const setting = (title: string, scope: Scope | null, ...body: Node[]) =>
-  h('div.setting', {}, h('div.setting-head', {}, h('h4', {}, title), scope && h('span.scope', { class: scope, title: SCOPE[scope][1] }, SCOPE[scope][0])), ...body);
+const setting = (title: TextKey, scope: Scope | null, ...body: Node[]) =>
+  h('div.setting', {}, h('div.setting-head', {}, h('h4', {}, t(title)), scope && h('span.scope', { class: scope, title: t(SCOPE[scope][1]) }, t(SCOPE[scope][0]))), ...body);
+
+/** ", set by Ada 5m ago" after a sentence, or nothing when nobody set it. */
+const setBy = (by: string | undefined, at: string | number | undefined, picked = false) =>
+  by ? t(picked ? (at ? 'settings.pickedByAt' : 'settings.pickedBy') : at ? 'settings.setByAt' : 'settings.setBy', { who: by, when: at ? timeAgo(at) : '' }) : '';
 
 /** Where ⚙️ Settings was last, so it opens there again. */
 let lastPane: SettingsPane = 'you';
 
 /** `outside` describes the sky over the office (see describeSky), once the server has said. `first` opens on that category instead of the last one. */
 export function openSettings(net: Net, settings: Settings, onChange: (s: Settings) => void, onCharacter: () => void, sound: Pick<OfficeSound, 'ding' | 'needsYou'>, notifier: DesktopNotifier, onSignOut: () => void, outside?: { now: string; live: boolean }, first?: SettingsPane) {
-  const seg = h('div.seg', { role: 'radiogroup', 'aria-label': 'Camera view' });
+  const seg = h('div.seg', { role: 'radiogroup', 'aria-label': t('settings.camera') });
   const note = h('p.setting-note');
   const paint = () => {
     seg.replaceChildren(
@@ -69,13 +74,17 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
               paint();
             },
           },
-          label,
+          t(label),
         ),
       ),
     );
-    note.textContent = VIEWS.find(([v]) => v === settings.view)![2];
+    note.textContent = t(VIEWS.find(([v]) => v === settings.view)![2]);
   };
   paint();
+
+  // The language, for you alone, in this browser. Each is named in itself, so you can find yours.
+  const langRow = choiceRow(t('settings.language'), LANGS.map((l) => [l, LANG_NAME[l]] as const), lang, setLang);
+  langRow.querySelectorAll('button').forEach((b, i) => (b.lang = LANGS[i]));
 
   /** A volume slider with its mute button. Dragging it turns the sound back on; letting go plays `preview`. */
   const volumeRow = (label: string, level: 'volume' | 'music', muted: 'muted' | 'musicMuted', preview?: () => void) => {
@@ -87,8 +96,8 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
       const v = Math.round(settings[level] * 100);
       slider.value = String(v);
       slider.style.setProperty('--fill', `${v}%`);
-      pct.textContent = settings[muted] ? 'Muted' : `${v}%`;
-      mute.textContent = settings[muted] ? '🔊 Unmute' : '🔇 Mute';
+      pct.textContent = settings[muted] ? t('settings.muted') : `${v}%`;
+      mute.textContent = t(settings[muted] ? 'settings.unmute' : 'settings.mute');
       mute.setAttribute('aria-pressed', String(settings[muted]));
       mute.classList.toggle('danger', settings[muted]);
       row.classList.toggle('muted', settings[muted]);
@@ -108,7 +117,7 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
     });
     return row;
   };
-  const soundRow = volumeRow('Office sounds volume', 'volume', 'muted', () => sound.ding('done'));
+  const soundRow = volumeRow(t('settings.sounds.volume'), 'volume', 'muted', () => sound.ding('done'));
 
   /** Changes some of your own settings, and has the office take them up. */
   const change = (some: Partial<Settings>) => {
@@ -116,19 +125,19 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
     onChange(settings);
   };
   // Voice chat: an open mic, or muted until you hold V.
-  const talkRow = choiceRow('Voice chat', [[false, '🎙️ Open mic'], [true, '✋ Push to talk']], () => settings.pushToTalk, (pushToTalk) => change({ pushToTalk }));
-  const musicRow = volumeRow('Jukebox volume', 'music', 'musicMuted');
+  const talkRow = choiceRow(t('settings.voice'), [[false, t('settings.voice.open')], [true, t('settings.voice.ptt')]], () => settings.pushToTalk, (pushToTalk) => change({ pushToTalk }));
+  const musicRow = volumeRow(t('settings.jukebox.volume'), 'music', 'musicMuted');
 
   // The swish of the book's pages at the bookshelf, on or off.
-  const pagesRow = choiceRow('Page turns at the bookshelf', [[true, '📖 On'], [false, 'Off']], () => settings.pageTurns, (pageTurns) => change({ pageTurns }));
+  const pagesRow = choiceRow(t('settings.pages'), [[true, t('settings.pages.on')], [false, t('common.off')]], () => settings.pageTurns, (pageTurns) => change({ pageTurns }));
   // The alarm when a worker stops to ask you something; picking one plays it.
-  const alarmRow = choiceRow<NeedsYouSound>('When a worker needs you', [['once', '🔔 Ring once'], ['remind', '🔁 Keep reminding me'], ['off', '🔕 Off']], () => settings.needsYouSound, (needsYouSound) => {
+  const alarmRow = choiceRow<NeedsYouSound>(t('settings.needsYou'), [['once', t('settings.needsYou.once')], ['remind', t('settings.needsYou.remind')], ['off', t('settings.needsYou.off')]], () => settings.needsYouSound, (needsYouSound) => {
     change({ needsYouSound });
     if (needsYouSound !== 'off') sound.needsYou();
   });
 
   // The building's holiday theme, for everyone.
-  const themeRow = h('div.seg', { role: 'radiogroup', 'aria-label': 'Holiday theme' });
+  const themeRow = h('div.seg', { role: 'radiogroup', 'aria-label': t('settings.theme') });
   const themeNote = h('p.setting-note');
   const paintTheme = () => {
     const { pick, active, by, at } = store.theme;
@@ -145,25 +154,20 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
               if (store.theme.pick !== p) net.send({ t: 'theme.set', pick: p });
             },
           },
-          THEME_LABEL[p],
+          t(THEME_LABEL[p]),
         ),
       ),
     );
-    const now =
-      active === 'halloween'
-        ? 'Halloween: the workers are zombies, your hands are an undead warlock’s, the dog’s in costume, the sky’s gone creepy and there are jack-o’-lanterns everywhere.'
-        : active === 'christmas'
-          ? 'Christmas: the workers are elves, your hands are in mittens, the dog’s Rudolph, and it’s snowing outside.'
-          : 'No decorations up right now.';
-    const how = pick === 'auto' ? ' By the calendar it’s Halloween through October and Christmas through December.' : '';
-    themeNote.textContent = `${now}${how} It’s the same for everyone in the building${by ? `, set by ${by}${at ? ` ${timeAgo(at)}` : ''}` : ''}.`;
+    const now = t(active === 'halloween' ? 'settings.theme.halloween.now' : active === 'christmas' ? 'settings.theme.christmas.now' : 'settings.theme.none');
+    const how = pick === 'auto' ? t('settings.theme.how') : '';
+    themeNote.textContent = t('settings.sameForAll', { now: `${now}${how}`, by: setBy(by, at) });
   };
   paintTheme();
 
   // The building's map, for everyone: the office, the castle, the space station, or one of your own. Opening Settings
   // has the office read its folder of maps again, so one you just added or fixed shows up.
   net.send({ t: 'map.set' });
-  const mapRow = h('div.seg', { role: 'radiogroup', 'aria-label': 'Map' });
+  const mapRow = h('div.seg', { role: 'radiogroup', 'aria-label': t('settings.map') });
   const mapNote = h('p.setting-note');
   const mapBad = h('p.setting-note.bad', { style: 'white-space: pre-line' });
   const paintMap = () => {
@@ -179,7 +183,7 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
             'aria-checked': String(pick === m.id),
             class: pick === m.id ? 'on' : '',
             disabled: !!m.error,
-            title: m.error ? `${m.id} won't load: ${m.error}` : m.description,
+            title: m.error ? t('settings.map.wontLoad', { id: m.id, error: m.error }) : m.description,
             onclick: () => {
               if (!m.error && store.map.pick !== m.id) net.send({ t: 'map.set', map: m.id });
             },
@@ -189,9 +193,9 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
       ),
     );
     const now = choices.find((m) => m.id === pick) ?? choices[0];
-    mapNote.textContent = `${now.description} It’s the same on every floor, for everyone in the building${by ? `, picked by ${by}${at ? ` ${timeAgo(at)}` : ''}` : ''}. Maps of your own go in the office’s .agent-office/maps/ folder as JSON (see docs/maps.md).`;
+    mapNote.textContent = t('settings.map.note', { about: now.description, by: setBy(by, at, true) });
     const broken = choices.filter((m) => m.error);
-    mapBad.textContent = broken.map((m) => `⚠️ ${m.id} won't load: ${m.error}`).join('\n');
+    mapBad.textContent = broken.map((m) => `⚠️ ${t('settings.map.wontLoad', { id: m.id, error: m.error ?? '' })}`).join('\n');
     mapBad.hidden = !broken.length;
   };
   paintMap();
@@ -218,13 +222,13 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
               paintNotify();
             },
           },
-          '🔔 Turn on notifications',
+          t('settings.desktop.turnOn'),
         ),
       );
     } else if (perm === 'granted') {
       for (const [value, label] of [
-        [true, '🔔 On'],
-        [false, '🔕 Off'],
+        [true, t('settings.desktop.on')],
+        [false, t('settings.desktop.off')],
       ] as const) {
         notifyRow.append(
           h(
@@ -244,34 +248,29 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
           ),
         );
       }
-      if (on) notifyRow.append(h('button.btn', { type: 'button', onclick: () => notifier.sample() }, 'Show me one'));
+      if (on) notifyRow.append(h('button.btn', { type: 'button', onclick: () => notifier.sample() }, t('settings.desktop.sample')));
     }
-    notifyNote.textContent =
-      perm === 'unsupported'
-        ? 'This browser can’t show notifications from the office here. They need https or localhost (an SSH tunnel counts).'
-        : perm === 'denied'
-          ? 'Your browser blocks notifications from the office. Allow them in the site settings (the icon left of the address), then open this again.'
-          : 'When a worker needs you or finishes while you’re in another tab or app, you get a notification. Click it to go straight to that worker: you’re put at its desk with its terminal open. The tab title counts the workers waiting on someone either way.';
+    notifyNote.textContent = t(perm === 'unsupported' ? 'settings.desktop.unsupported' : perm === 'denied' ? 'settings.desktop.denied' : 'settings.desktop.note');
   };
   paintNotify();
 
   // The office's Slack / Discord webhook, shared by everyone.
   const hookStatus = h('p.setting-note');
-  const hookInput = h('input', { type: 'text', placeholder: 'https://hooks.slack.com/services/…', 'aria-label': 'Slack or Discord webhook URL', spellcheck: 'false', autocomplete: 'off' }) as HTMLInputElement;
-  const hookSave = h('button.btn.primary', { type: 'button' }, 'Save');
-  const hookTest = h('button.btn', { type: 'button' }, 'Send a test');
-  const hookRemove = h('button.btn.danger', { type: 'button' }, 'Remove');
+  const hookInput = h('input.ltr', { type: 'text', placeholder: 'https://hooks.slack.com/services/…', 'aria-label': t('settings.hook.aria'), spellcheck: 'false', autocomplete: 'off' }) as HTMLInputElement;
+  const hookSave = h('button.btn.primary', { type: 'button' }, t('common.save'));
+  const hookTest = h('button.btn', { type: 'button' }, t('settings.hook.test'));
+  const hookRemove = h('button.btn.danger', { type: 'button' }, t('common.remove'));
   const hookActions = h('div.seg', { style: 'margin-top:8px' }, hookTest, hookRemove);
   const paintHook = () => {
     const { webhook, error, lastSentAt } = store.notify;
     hookActions.classList.toggle('hidden', !webhook);
-    hookSave.textContent = webhook ? 'Replace' : 'Save';
+    hookSave.textContent = t(webhook ? 'settings.hook.replace' : 'common.save');
     hookStatus.classList.toggle('bad', !!error);
     hookStatus.textContent = !webhook
-      ? 'Paste an incoming webhook from Slack or Discord, and the office posts to that channel when a worker needs input or finishes and nobody has its terminal open. It’s for everyone in the office.'
+      ? t('settings.hook.none')
       : error
-        ? `⚠️ Posting to ${WEBHOOK_NAME[webhook.kind]} (${webhook.hint}) failed: ${error}`
-        : `📣 Posting to ${WEBHOOK_NAME[webhook.kind]} (${webhook.hint}), set by ${webhook.by} ${timeAgo(webhook.at)}${lastSentAt ? ` · last message ${timeAgo(lastSentAt)}` : ''}.`;
+        ? t('settings.hook.failed', { kind: WEBHOOK_NAME[webhook.kind](), hint: ltrText(webhook.hint), error })
+        : t('settings.hook.ok', { kind: WEBHOOK_NAME[webhook.kind](), hint: ltrText(webhook.hint), who: webhook.by, when: timeAgo(webhook.at), last: lastSentAt ? t('settings.hook.last', { when: timeAgo(lastSentAt) }) : '' });
   };
   paintHook();
   const saveHook = () => {
@@ -292,7 +291,7 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
   let agentTouched = false;
   agent.element.addEventListener('change', () => (agentTouched = true));
   agent.element.addEventListener('input', () => (agentTouched = true));
-  const agentSave = h('button.btn.primary', { type: 'button' }, 'Save');
+  const agentSave = h('button.btn.primary', { type: 'button' }, t('common.save'));
   const agentBack = h('button.btn', { type: 'button' });
   const agentActions = h('div.seg', { style: 'margin-top:8px' }, agentSave, agentBack);
   const agentNow = h('p.outside-now');
@@ -306,12 +305,10 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
     agentNow.classList.toggle('hidden', admin);
     agentNow.textContent = choiceLabel(now);
     agentBack.classList.toggle('hidden', !picked);
-    agentBack.textContent = `Back to ${store.project?.agentCmd.split(' ')[0].split(/[\\/]/).pop() ?? 'the --agent'}`;
+    const cmd = store.project?.agentCmd.split(' ')[0].split(/[\\/]/).pop();
+    agentBack.textContent = t('settings.agent.back', { cmd: cmd ? ltrText(cmd) : t('settings.agent.flag') });
     if (!agentTouched) agent.set(now);
-    agentNote.textContent =
-      'Every worker starts on this: hired at a desk, handed an issue or a pull request from the boards, taken off the queue, the board agents and meetings. Where you start one, ✏️ Edit picks another just for it.' +
-      (picked ? ` Set by ${picked.by} ${timeAgo(picked.at)}.` : ' It’s the agent the office was started with, on its own default model.') +
-      (admin ? '' : ' Admins can change it.');
+    agentNote.textContent = t('settings.agent.note') + (picked ? t('settings.setBySentence', { who: picked.by, when: timeAgo(picked.at) }) : t('settings.agent.started')) + (admin ? '' : t('settings.adminsChange'));
   };
   paintAgent();
   agentSave.addEventListener('click', () => {
@@ -329,17 +326,14 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
   const promptsNote = h('p.setting-note');
   const paintPrompts = () => {
     const n = rewrittenPrompts();
-    promptsOpen.textContent = store.me.admin ? '📝 Edit the prompts…' : '📝 Read the prompts…';
-    promptsNote.textContent =
-      'What 🤖 Hand to a worker, 🔍 Review and the boards’ other buttons tell a worker, the note the queue adds to a task, the board agents’ briefs, the meeting room’s parts and the sign writer’s instructions. ' +
-      (n ? `${n} of them rewritten.` : 'All as the office wrote them.') +
-      (store.me.admin ? '' : ' Admins can rewrite them.');
+    promptsOpen.textContent = t(store.me.admin ? 'settings.prompts.edit' : 'settings.prompts.read');
+    promptsNote.textContent = t('settings.prompts.note') + (n ? tn('settings.prompts.rewritten', n) : t('settings.prompts.original')) + (store.me.admin ? '' : t('settings.prompts.admins'));
   };
   paintPrompts();
 
   // The most workers the office runs at once, across every floor. Admins set it.
-  const limitInput = h('input', { type: 'text', inputmode: 'numeric', 'aria-label': 'Most workers at once', spellcheck: 'false', autocomplete: 'off' }) as HTMLInputElement;
-  const limitSave = h('button.btn.primary', { type: 'button' }, 'Set limit');
+  const limitInput = h('input', { type: 'text', inputmode: 'numeric', 'aria-label': t('settings.limit.aria'), spellcheck: 'false', autocomplete: 'off' }) as HTMLInputElement;
+  const limitSave = h('button.btn.primary', { type: 'button' }, t('settings.limit.set'));
   const limitClear = h('button.btn', { type: 'button' });
   const limitRow = h('div.webhook', {}, limitInput, limitSave, limitClear);
   const limitNote = h('p.setting-note');
@@ -347,16 +341,13 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
     const m = store.machine;
     const admin = store.me.admin;
     limitRow.classList.toggle('hidden', !admin);
-    limitInput.placeholder = m.ceiling ? `1 to ${m.ceiling}` : 'e.g. 6';
-    limitClear.textContent = m.ceiling ? `Back to ${m.ceiling}` : 'No limit';
+    limitInput.placeholder = m.ceiling ? t('settings.limit.range', { max: m.ceiling }) : t('settings.limit.example');
+    limitClear.textContent = m.ceiling ? t('settings.limit.back', { n: m.ceiling }) : t('settings.limit.none');
     limitClear.classList.toggle('hidden', !m.set);
-    const now =
-      m.limit === undefined
-        ? `No limit: the office hires a worker for every free seat. ${m.workers} ${m.workers === 1 ? 'is' : 'are'} here now, across every floor.`
-        : `At most ${m.limit} worker${m.limit === 1 ? '' : 's'} at once, across every floor (${m.workers} now), shells and board agents too. Hiring past that is refused.`;
-    const from = m.set ? ` Set by ${m.set.by} ${timeAgo(m.set.at)}.` : '';
-    const cap = m.ceiling ? ` The office was started with --max-workers ${m.ceiling}, so it can't go any higher.` : '';
-    limitNote.textContent = now + from + cap + (admin ? '' : ' Admins can change it.');
+    const now = m.limit === undefined ? tn('settings.limit.noneNote', m.workers) : tn('settings.limit.note', m.limit, { now: m.workers });
+    const from = m.set ? t('settings.setBySentence', { who: m.set.by, when: timeAgo(m.set.at) }) : '';
+    const cap = m.ceiling ? t('settings.limit.cap', { n: m.ceiling }) : '';
+    limitNote.textContent = now + from + cap + (admin ? '' : t('settings.adminsChange'));
   };
   paintLimit();
   const saveLimit = () => {
@@ -372,14 +363,14 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
   limitClear.addEventListener('click', () => net.send({ t: 'machine.limit', limit: null }));
 
   // Whether a worker whose pull request merged goes home by itself, for everyone.
-  const leaveRow = h('div.seg', { role: 'radiogroup', 'aria-label': 'Workers whose pull request merged' });
+  const leaveRow = h('div.seg', { role: 'radiogroup', 'aria-label': t('settings.leave') });
   const leaveNote = h('p.setting-note');
   const paintLeave = () => {
     const { on, by, at } = store.leaveOnMerge;
     leaveRow.replaceChildren(
       ...([
-        [true, '🏠 Go home by themselves'],
-        [false, '🪑 Stay until sent home'],
+        [true, t('settings.leave.go')],
+        [false, t('settings.leave.stay')],
       ] as const).map(([value, label]) =>
         h(
           'button.btn',
@@ -396,17 +387,14 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
         ),
       ),
     );
-    const now = on
-      ? 'Once a worker’s pull request merges, it goes home as soon as it isn’t working or waiting on you and nobody has its terminal open, and its worktree and branch are deleted. A worktree with uncommitted changes, or commits that aren’t on GitHub, is kept.'
-      : 'A worker whose pull request merged stays at its desk, outlined in purple, until someone sends it home. Turned on, the ones already merged go too.';
-    leaveNote.textContent = `${now} It’s the same for everyone in the building${by ? `, set by ${by}${at ? ` ${timeAgo(at)}` : ''}` : ''}.`;
+    leaveNote.textContent = t('settings.sameForAll', { now: t(on ? 'settings.leave.goNote' : 'settings.leave.stayNote'), by: setBy(by, at) });
   };
   paintLeave();
 
   // Where the elevator clones new projects on the office's machine. Admins move it.
-  const dirInput = h('input', { type: 'text', placeholder: '~/Workspace', 'aria-label': 'Workspace folder', spellcheck: 'false', autocomplete: 'off' }) as HTMLInputElement;
-  const dirSave = h('button.btn.primary', { type: 'button' }, 'Save');
-  const dirDefault = h('button.btn', { type: 'button' }, 'Use the default');
+  const dirInput = h('input.ltr', { type: 'text', placeholder: '~/Workspace', 'aria-label': t('settings.dir'), spellcheck: 'false', autocomplete: 'off' }) as HTMLInputElement;
+  const dirSave = h('button.btn.primary', { type: 'button' }, t('common.save'));
+  const dirDefault = h('button.btn', { type: 'button' }, t('settings.dir.default'));
   const dirRow = h('div.webhook', {}, dirInput, dirSave);
   const dirActions = h('div.seg', { style: 'margin-top:8px' }, dirDefault);
   const dirNote = h('p.setting-note');
@@ -417,9 +405,9 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
     dirRow.classList.toggle('hidden', !admin);
     dirActions.classList.toggle('hidden', !admin || !custom);
     dirNote.textContent =
-      `New projects from the elevator are cloned into ${dir}/<owner>/<repo> on the office’s machine.` +
-      (custom && by && at ? ` Set by ${by} ${timeAgo(at)}.` : '') +
-      (admin ? ' A checkout of the same repository that’s already there is used as it is. Floors you already have stay where they are.' : ' An admin can move it.');
+      t('settings.dir.note', { path: ltrText(`${dir}/<owner>/<repo>`) }) +
+      (custom && by && at ? t('settings.setBySentence', { who: by, when: timeAgo(at) }) : '') +
+      t(admin ? 'settings.dir.admin' : 'settings.dir.notAdmin');
   };
   paintDir();
   const saveDir = () => {
@@ -434,55 +422,57 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
   dirDefault.addEventListener('click', () => net.send({ t: 'floor.projectsDir', dir: '' }));
 
   // The dog on this floor: its name, breed and coat, for everyone here (see settings-dog.ts).
-  const { section: dogSection, paint: paintDog } = dogSetting(net, (body) => setting('Office dog', 'floor', ...body));
+  const { section: dogSection, paint: paintDog } = dogSetting(net, (body) => setting('settings.dog', 'floor', ...body));
 
   // What the sky's doing, and which clock it keeps (see settings-sky.ts).
-  const sky = outside && outsideSetting(net, outside, (body) => setting('Outside', 'office', ...body));
+  const sky = outside && outsideSetting(net, outside, (body) => setting('settings.outside', 'office', ...body));
   const account = store.me.account;
-  const signOut = h('button.btn', { type: 'button' }, '🚪 Sign out');
+  const signOut = h('button.btn', { type: 'button' }, t('settings.signOut'));
   signOut.addEventListener('click', onSignOut);
-  const character = h('button.btn', { type: 'button' }, account ? '🧍 Change your look' : '🧍 Change your look & name');
+  const character = h('button.btn', { type: 'button' }, t(account ? 'settings.changeLook' : 'settings.changeLookName'));
+  const role = account && (account.role === 'admin' ? t('settings.role.admin') : account.role === 'member' ? t('settings.role.member') : account.role);
   const panes: Record<SettingsPane, Node[]> = {
     you: [
-      setting('Your character', null, character),
-      setting('Camera view', 'you', seg, note),
-      setting('Signed in', null, h('div.volume', {}, signOut), h('p.setting-note', {}, account ? `As ${account.name}, with your own account (${account.role}).` : 'With the shared office password.')),
+      setting('settings.character', null, character),
+      setting('settings.language', 'you', langRow, h('p.setting-note', {}, t('settings.language.note'))),
+      setting('settings.camera', 'you', seg, note),
+      setting('settings.signedIn', null, h('div.volume', {}, signOut), h('p.setting-note', {}, account ? t('settings.signedInAs', { name: account.name, role: role ?? '' }) : t('settings.signedInShared'))),
     ],
     sound: [
-      setting('Office sounds', 'you', soundRow, h('p.setting-note', {}, 'Workers typing, footsteps, the coffee machine, birds and rain outside, the dog, the ding when a worker is done and the alarm when one needs you. Voice chat isn’t affected.')),
-      setting('When a worker needs you', 'you', alarmRow, h('p.setting-note', {}, 'An alarm the moment a worker stops to ask you something or wants a permission. Keep reminding me rings it again, softly, every 30 seconds until someone opens that worker’s terminal. It’s as loud as the office sounds are.')),
-      setting('Page turns at the bookshelf', 'you', pagesRow, h('p.setting-note', {}, 'A soft swish each time the book in your hands turns a page, as you open a doc or scroll through one. The 🔈 at the top of the bookshelf turns it off too.')),
-      setting('Jukebox', 'you', musicRow, h('p.setting-note', {}, 'The jukebox in the lounge. Everyone on the floor hears the same song, louder the closer they are to it; this is how loud it is for you alone.')),
-      setting('Voice chat', 'you', talkRow, h('p.setting-note', {}, 'Either way, V joins voice, holding V talks and you’re muted once you let go, and M mutes or unmutes. With push to talk you join muted. Leave voice from the ☰ menu.')),
+      setting('settings.sounds', 'you', soundRow, h('p.setting-note', {}, t('settings.sounds.note'))),
+      setting('settings.needsYou', 'you', alarmRow, h('p.setting-note', {}, t('settings.needsYou.note'))),
+      setting('settings.pages', 'you', pagesRow, h('p.setting-note', {}, t('settings.pages.note'))),
+      setting('settings.jukebox', 'you', musicRow, h('p.setting-note', {}, t('settings.jukebox.note'))),
+      setting('settings.voice', 'you', talkRow, h('p.setting-note', {}, t('settings.voice.note'))),
     ],
     notify: [
-      setting('Desktop notifications', 'you', notifyRow, notifyNote),
-      setting('Team notifications (Slack / Discord)', 'office', h('div.webhook', {}, hookInput, hookSave), hookActions, hookStatus),
+      setting('settings.desktop', 'you', notifyRow, notifyNote),
+      setting('settings.team', 'office', h('div.webhook', {}, hookInput, hookSave), hookActions, hookStatus),
     ],
     building: [
-      setting('Map', 'office', mapRow, mapNote, mapBad),
-      setting('Holiday theme', 'office', themeRow, themeNote),
+      setting('settings.map', 'office', mapRow, mapNote, mapBad),
+      setting('settings.theme', 'office', themeRow, themeNote),
       ...(sky ? [sky.section] : []),
       dogSection,
-      setting('Workspace folder', 'office', dirRow, dirActions, dirNote),
+      setting('settings.dir', 'office', dirRow, dirActions, dirNote),
     ],
     workers: [
-      setting('Default worker', 'office', agentNow, agent.element, agentActions, agentNote),
-      setting('Worker limit', 'office', limitRow, limitNote),
-      setting('Workers whose pull request merged', 'office', leaveRow, leaveNote),
-      setting('Prompts', 'office', promptsOpen, promptsNote),
+      setting('settings.agent', 'office', agentNow, agent.element, agentActions, agentNote),
+      setting('settings.limit', 'office', limitRow, limitNote),
+      setting('settings.leave', 'office', leaveRow, leaveNote),
+      setting('settings.prompts', 'office', promptsOpen, promptsNote),
     ],
   };
 
   // The categories down the side, the one picked on the right.
-  const nav = h('nav.settings-nav', { role: 'tablist', 'aria-orientation': 'vertical', 'aria-label': 'Settings' });
+  const nav = h('nav.settings-nav', { role: 'tablist', 'aria-orientation': 'vertical', 'aria-label': t('settings.label') });
   const tabs = new Map<SettingsPane, HTMLButtonElement>();
   const bodies = new Map<SettingsPane, HTMLElement>();
   for (const p of PANES) {
-    const tab = h('button.settings-tab', { type: 'button', role: 'tab', onclick: () => show(p.id) }, h('span.icon', { 'aria-hidden': 'true' }, p.icon), h('span', {}, p.label)) as HTMLButtonElement;
+    const tab = h('button.settings-tab', { type: 'button', role: 'tab', onclick: () => show(p.id) }, h('span.icon', { 'aria-hidden': 'true' }, p.icon), h('span', {}, t(p.label))) as HTMLButtonElement;
     tabs.set(p.id, tab);
     nav.append(tab);
-    bodies.set(p.id, h('section.settings-pane', { role: 'tabpanel', 'aria-label': p.label }, h('div.settings-head', {}, h('h3', {}, `${p.icon} ${p.label}`), h('p', {}, p.blurb)), ...panes[p.id]));
+    bodies.set(p.id, h('section.settings-pane', { role: 'tabpanel', 'aria-label': t(p.label) }, h('div.settings-head', {}, h('h3', {}, `${p.icon} ${t(p.label)}`), h('p', {}, t(p.blurb))), ...panes[p.id]));
   }
   const show = (id: SettingsPane) => {
     lastPane = id;
@@ -497,7 +487,9 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
     tabs.get(id)!.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   };
   nav.addEventListener('keydown', (e) => {
-    const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+    // Right is the next one across a phone's row in English, the one before it in Arabic.
+    const side = lang() === 'ar' ? -1 : 1;
+    const step = { ArrowDown: 1, ArrowRight: side, ArrowUp: -1, ArrowLeft: -side }[e.key];
     if (!step) return;
     e.preventDefault();
     const i = PANES.findIndex((p) => p.id === lastPane);
@@ -506,8 +498,8 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
     tabs.get(next)!.focus();
   });
 
-  const close = h('button.btn.close', { 'aria-label': 'Close' }, '✕');
-  const el = h('div.modal.settings', { role: 'dialog', 'aria-label': 'Settings' }, h('header', {}, h('h2', {}, '⚙️ Settings'), close), h('div.settings-body', {}, nav, ...bodies.values()));
+  const close = h('button.btn.close', { 'aria-label': t('common.close') }, '✕');
+  const el = h('div.modal.settings', { role: 'dialog', 'aria-label': t('settings.label') }, h('header', {}, h('h2', {}, t('settings.title')), close), h('div.settings-body', {}, nav, ...bodies.values()));
   const offNotify = store.on('notify', paintHook);
   const offDog = store.on('dog', paintDog);
   const offTheme = store.on('theme', paintTheme);
@@ -516,8 +508,14 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
   const offLimit = [store.on('machine', paintLimit), store.on('me', paintLimit)];
   const offDir = [store.on('projectsDir', paintDir), store.on('me', paintDir)];
   const offPrompts = [store.on('prompts', paintAgent), store.on('prompts', paintPrompts), store.on('me', paintAgent), store.on('me', paintPrompts)];
+  // A switch of language opens Settings again in the new words, where it was, with the switch in focus.
+  let relang = false;
+  const offLang = onLang(() => {
+    relang = true;
+    modal.close();
+  });
   const modal = openModal(el, {
-    doing: '⚙️ in settings',
+    doing: t('settings.doing'),
     onClose: () => {
       offNotify();
       offDog();
@@ -528,6 +526,10 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
       offLimit.forEach((off) => off());
       offDir.forEach((off) => off());
       offPrompts.forEach((off) => off());
+      offLang();
+      if (!relang) return;
+      openSettings(net, settings, onChange, onCharacter, sound, notifier, onSignOut, outside, lastPane);
+      document.querySelector<HTMLElement>('.settings [lang].on')?.focus();
     },
   });
   show(first ?? lastPane);

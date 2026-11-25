@@ -1,4 +1,9 @@
-export {}; // a module, so its names don't clash with the other pages' scripts
+import { t } from './i18n';
+import { installPageLanguage, langSwitch } from './i18n/dom';
+import { serverText } from './i18n/server';
+
+installPageLanguage('login.title');
+document.querySelector('main.card')!.prepend(langSwitch());
 
 const form = document.getElementById('form') as HTMLFormElement;
 const nameRow = document.getElementById('name-row') as HTMLLabelElement;
@@ -21,9 +26,9 @@ if (linkKey) {
   void fetch('/api/link', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: linkKey }) })
     .then(async (res) => {
       if (res.ok) return location.replace(NEXT);
-      error.textContent = ((await res.json().catch(() => ({}))) as { error?: string }).error ?? 'Could not sign in';
+      error.textContent = serverText(((await res.json().catch(() => ({}))) as { error?: string }).error ?? t('login.failed'));
     })
-    .catch(() => void (error.textContent = 'Server unreachable'));
+    .catch(() => void (error.textContent = t('common.serverUnreachable')));
 }
 
 // Ask for a name once people have accounts; it's optional while the shared password still works.
@@ -34,7 +39,9 @@ void fetch('/api/login', { cache: 'no-store' })
     nameRow.hidden = false;
     nameInput.required = !shared;
     nameNote.hidden = !shared;
-    sub.textContent = shared ? 'Knock knock. Who is it?' : 'Knock knock. Who is it? Sign in with your own account.';
+    // The data-i18n on it is what a switch of language fills it with.
+    sub.dataset.i18n = shared ? 'login.askWho' : 'login.askWhoAccounts';
+    sub.textContent = t(shared ? 'login.askWho' : 'login.askWhoAccounts');
     try {
       nameInput.value = localStorage.getItem(NAME_KEY) ?? '';
     } catch {
@@ -65,10 +72,10 @@ form.addEventListener('submit', async (e) => {
       return;
     }
     const body = await res.json().catch(() => ({}));
-    error.textContent = body.error ?? 'Could not sign in';
+    error.textContent = serverText(body.error ?? t('login.failed'));
     input.select();
   } catch {
-    error.textContent = 'Server unreachable';
+    error.textContent = t('common.serverUnreachable');
   } finally {
     submit.disabled = false;
   }

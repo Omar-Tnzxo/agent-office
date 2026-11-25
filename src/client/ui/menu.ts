@@ -3,6 +3,8 @@ import { store, type HudPanel, type Settings, type Topic } from '../state';
 import { waitingOnSomeone } from '../notify';
 import { DESK_BY_ID } from '../../shared/layout';
 import { $, h, openModal, type Modal } from './dom';
+import { isRtl, onLang, t, tn, type TextKey } from '../i18n';
+import { rich } from '../i18n/dom';
 
 /** One thing the ☰ menu does. Any of them can be pinned to the top bar. */
 export interface HudAction {
@@ -31,14 +33,17 @@ export interface HudAction {
   run: () => void;
 }
 
-const PANELS: { id: HudPanel; icon: string; label: string; what: string }[] = [
-  { id: 'workers', icon: '🤖', label: 'Workers', what: 'Every desk and what it’s up to' },
-  { id: 'people', icon: '👥', label: 'People', what: 'Who’s here, on which floor' },
-  { id: 'spend', icon: '💸', label: 'Spend', what: 'Today, the budget, all time' },
-  { id: 'limits', icon: '⏳', label: 'Claude limits', what: 'The plan’s 5-hour and week' },
-  { id: 'chat', icon: '💬', label: 'Chat', what: 'T opens it either way' },
-  { id: 'floor', icon: '🏢', label: 'Floor details', what: 'Branch, folder, default agent' },
+const PANELS: { id: HudPanel; icon: string; label: TextKey; what: TextKey }[] = [
+  { id: 'workers', icon: '🤖', label: 'hud.panel.workers', what: 'hud.panel.workers.what' },
+  { id: 'people', icon: '👥', label: 'hud.panel.people', what: 'hud.panel.people.what' },
+  { id: 'spend', icon: '💸', label: 'hud.panel.spend', what: 'hud.panel.spend.what' },
+  { id: 'limits', icon: '⏳', label: 'hud.panel.limits', what: 'hud.panel.limits.what' },
+  { id: 'chat', icon: '💬', label: 'hud.panel.chat', what: 'hud.panel.chat.what' },
+  { id: 'floor', icon: '🏢', label: 'hud.panel.floor', what: 'hud.panel.floor.what' },
 ];
+
+/** What each section of the menu is called. */
+const SECTION: Record<HudAction['section'], TextKey> = { Open: 'hud.sec.Open', Together: 'hud.sec.Together', Office: 'hud.sec.Office' };
 
 /** The element each panel is. */
 const PANEL_EL: Record<HudPanel, string> = { workers: 'workers-panel', people: 'people-panel', spend: 'spend', limits: 'limits', chat: 'chat', floor: 'project-meta' };
@@ -47,7 +52,7 @@ const PIN_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="tr
 
 /** The ✕ in a panel's heading, which hides it until you turn it back on from the ☰ menu. */
 export function panelHide(id: HudPanel): HTMLElement {
-  return h('button.panel-x', { type: 'button', 'data-hud': id, 'aria-label': 'Hide', title: 'Hide (☰ brings it back)' }, '✕');
+  return h('button.panel-x', { type: 'button', 'data-hud': id, 'aria-label': t('common.hide'), title: t('hud.panelHide'), 'data-i18n-aria': 'common.hide', 'data-i18n-title': 'hud.panelHide' }, '✕');
 }
 
 export interface Hud {
@@ -70,7 +75,7 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
   const pinned = (a: HudAction) => settings.pins.includes(a.id);
   let menu: Modal | null = null;
 
-  const menuBtn = h('button.btn.dock-btn.dock-menu', { type: 'button', 'aria-label': 'Menu', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Menu: everything else, and what shows on screen (Tab)' }, h('span.burger', { 'aria-hidden': 'true' }, h('i'), h('i'), h('i')));
+  const menuBtn = h('button.btn.dock-btn.dock-menu', { type: 'button', 'aria-label': t('hud.menu'), 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: t('hud.menuTitle'), 'data-i18n-aria': 'hud.menu', 'data-i18n-title': 'hud.menuTitle' }, h('span.burger', { 'aria-hidden': 'true' }, h('i'), h('i'), h('i')));
   menuBtn.addEventListener('click', () => toggleMenu());
 
   function applyPanels() {
@@ -117,7 +122,7 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
     const on = settings.hud[id];
     return h(
       'button.btn.dock-btn.dock-panel',
-      { type: 'button', 'aria-pressed': String(on), title: `${title}${on ? ' · click to hide' : ' · click to show'}`, onclick: () => setPanel(id, !settings.hud[id]) },
+      { type: 'button', 'aria-pressed': String(on), title: t(on ? 'hud.clickToHide' : 'hud.clickToShow', { title }), onclick: () => setPanel(id, !settings.hud[id]) },
       icon,
       h('span.lbl', {}, label),
       n ? h('span.n', {}, String(n)) : null,
@@ -127,14 +132,14 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
   function render() {
     const items: HTMLElement[] = actions.filter((a) => offered(a) && (pinned(a) || a.status?.())).map(dockButton);
     const people = store.peers.size;
-    if (people > 1 || settings.hud.people) items.push(panelChip('people', '👥', 'People', people, `${people} in the office`));
+    if (people > 1 || settings.hud.people) items.push(panelChip('people', '👥', t('hud.panel.people'), people, tn('hud.peopleHere', people)));
     const workers = [...store.workers.values()];
     // Hired onto desks, bean bags and the meeting room's table; the board agents at their kiosks don't count.
     const hired = workers.filter((w) => !DESK_BY_ID.get(w.deskId)?.station).length;
     const waiting = workers.filter(waitingOnSomeone).length;
-    const workersTitle = hired || waiting ? `${hired} worker${hired === 1 ? '' : 's'} on this floor${waiting ? `, ${waiting} waiting on someone` : ''}` : 'No workers on this floor yet';
+    const workersTitle = hired || waiting ? (waiting ? tn('hud.workersWaiting', waiting, { workers: tn('hud.workersHere', hired) }) : tn('hud.workersHere', hired)) : t('hud.noWorkers');
     // Who's waiting has its own button on the bar (the 'waiting' action), so this just counts them.
-    items.push(panelChip('workers', '🤖', 'Workers', hired, workersTitle));
+    items.push(panelChip('workers', '🤖', t('hud.panel.workers'), hired, workersTitle));
     // Redrawn only when it looks different, so a busy worker's updates don't swap a button out from under a click.
     const next = h('div', {}, ...items);
     if (next.innerHTML !== [...dock.children].filter((c) => c !== menuBtn).map((c) => c.outerHTML).join('')) dock.replaceChildren(...items, menuBtn);
@@ -170,8 +175,8 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
       pin.innerHTML = PIN_SVG;
       const paintPin = () => {
         pin.setAttribute('aria-pressed', String(pinned(a)));
-        pin.setAttribute('aria-label', `Pin ${labelOf(a)} to the top bar`);
-        pin.title = pinned(a) ? 'Unpin from the top bar' : 'Pin to the top bar';
+        pin.setAttribute('aria-label', t('hud.pinTo', { label: labelOf(a) }));
+        pin.title = t(pinned(a) ? 'hud.unpin' : 'hud.pin');
       };
       paintPin();
       pin.addEventListener('click', () => {
@@ -185,7 +190,7 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
         'button.menu-item.menu-toggle',
         { type: 'button', role: 'menuitemcheckbox' },
         h('span.mi-icon', {}, p.icon),
-        h('span.mi-label', {}, p.label, h('small', {}, p.what)),
+        h('span.mi-label', {}, t(p.label), h('small', {}, t(p.what))),
         h('span.switch', { 'aria-hidden': 'true' }),
       );
       const paint = () => item.setAttribute('aria-checked', String(settings.hud[p.id]));
@@ -196,14 +201,14 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
       });
       return item;
     };
-    const section = (name: string, rows: HTMLElement[]) => (rows.length ? [h('div.menu-sec', {}, name), ...rows] : []);
+    const section = (name: TextKey, rows: HTMLElement[]) => (rows.length ? [h('div.menu-sec', {}, t(name)), ...rows] : []);
     const rows = (s: HudAction['section']) => actions.filter((a) => a.section === s && offered(a)).map(row);
     const el = h(
       'div.hud-menu',
-      { role: 'menu', 'aria-label': 'Menu' },
-      h('div.menu-col', {}, ...section('Open', rows('Open')), ...section('Together', rows('Together'))),
-      h('div.menu-col', {}, ...section('Show on screen', PANELS.map(toggle)), ...section('Office', rows('Office'))),
-      h('p.menu-foot', {}, 'Pin what you use most to keep it on the top bar. ', h('kbd', {}, 'Tab'), ' opens and closes this menu.'),
+      { role: 'menu', 'aria-label': t('hud.menu') },
+      h('div.menu-col', {}, ...section(SECTION.Open, rows('Open')), ...section(SECTION.Together, rows('Together'))),
+      h('div.menu-col', {}, ...section('hud.sec.show', PANELS.map(toggle)), ...section(SECTION.Office, rows('Office'))),
+      h('p.menu-foot', {}, ...rich('hud.menuFoot', { key: h('kbd', {}, 'Tab') })),
     );
     // On the window, so the keys work wherever focus is while the menu is up.
     const onKey = (e: KeyboardEvent) => menuKey(el, e);
@@ -222,7 +227,9 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
     // Hangs under the ☰ button.
     const r = menuBtn.getBoundingClientRect();
     el.style.top = `${r.bottom + 8}px`;
-    el.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+    // From the ☰ button's outer edge: the right in English, the left in Arabic, where the top bar ends.
+    if (isRtl()) el.style.left = `${Math.max(8, r.left)}px`;
+    else el.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
     el.style.maxHeight = `${window.innerHeight - r.bottom - 20}px`;
     el.querySelector<HTMLElement>('.menu-item')?.focus();
   }
@@ -234,7 +241,10 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
     const onPin = !!at?.classList.contains('menu-pin');
     const i = items.indexOf((onPin ? at!.previousElementSibling : at) as HTMLElement);
     let next: Element | null | undefined;
-    switch (e.key) {
+    // The pin is at a row's end: on the right in English, on the left in Arabic, and the arrows follow it.
+    const toPin = isRtl() ? 'ArrowLeft' : 'ArrowRight';
+    const fromPin = isRtl() ? 'ArrowRight' : 'ArrowLeft';
+    switch (e.key === toPin ? 'toPin' : e.key === fromPin ? 'fromPin' : e.key) {
       case 'ArrowDown':
         next = items[(i + 1) % items.length];
         break;
@@ -247,10 +257,10 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
       case 'End':
         next = items[items.length - 1];
         break;
-      case 'ArrowRight':
+      case 'toPin':
         next = onPin ? null : at?.nextElementSibling;
         break;
-      case 'ArrowLeft':
+      case 'fromPin':
         next = onPin ? at?.previousElementSibling : null;
         break;
       case 'Tab':
@@ -281,5 +291,13 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
   for (const t of ['workers', 'peers', 'issues', 'pulls', 'services', 'queue', 'meeting', 'upgrade', 'me', 'floors', 'signins'] as Topic[]) store.on(t, render);
   applyPanels();
   render();
+  // A switch of language redraws the top bar, and an open menu in the new words.
+  onLang(() => {
+    render();
+    if (menu) {
+      menu.close();
+      openMenu();
+    }
+  });
   return { refresh: render, toggleMenu };
 }
