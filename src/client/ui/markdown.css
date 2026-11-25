@@ -15,14 +15,14 @@
 .md code { font: 12.5px ui-monospace, 'SF Mono', Menlo, Consolas, monospace; background: #f3ebe0; border-radius: 6px; padding: 1px 5px; }
 .md pre { background: #1e1f2e; color: #e9ecef; border: 2px solid var(--ink); border-radius: 10px; padding: 12px 14px; overflow: auto; }
 .md pre code { background: none; padding: 0; color: inherit; font-size: 12.5px; line-height: 1.5; }
-.md blockquote { margin-left: 0; margin-right: 0; padding: 2px 14px; border-left: 4px solid #d9cbb8; color: var(--muted); }
-.md ul, .md ol { padding-left: 26px; }
+.md blockquote { margin-inline: 0; padding: 2px 14px; border-inline-start: 4px solid #d9cbb8; color: var(--muted); }
+.md ul, .md ol { padding-inline-start: 26px; }
 .md li + li { margin-top: 3px; }
 .md li > ul, .md li > ol, .md li > p { margin: 4px 0; }
-.md li:has(> input[type=checkbox]) { list-style: none; margin-left: -20px; }
-.md input[type=checkbox] { margin: 0 6px 0 0; vertical-align: -2px; accent-color: var(--good); }
+.md li:has(> input[type=checkbox]) { list-style: none; margin-inline-start: -20px; }
+.md input[type=checkbox] { margin: 0; margin-inline-end: 6px; vertical-align: -2px; accent-color: var(--good); }
 .md table { display: block; width: max-content; max-width: 100%; overflow: auto; border-collapse: collapse; font-size: 13.5px; }
-.md th, .md td { border: 1.5px solid #ddd0bf; padding: 6px 11px; text-align: left; }
+.md th, .md td { border: 1.5px solid #ddd0bf; padding: 6px 11px; text-align: start; }
 .md th { background: var(--paper-2); font-weight: 900; }
 .md tr:nth-child(2n) td { background: #fffaf3; }
 .md img { max-width: 100%; border-radius: 6px; }

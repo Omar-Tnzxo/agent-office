@@ -6,6 +6,7 @@
 import './dictate.css';
 import { h, onModalChange, toast } from './dom';
 import { checkOnDevice, listen, PushToTalk, speechSupport, spliceSpoken, type Listening } from './speech';
+import { t } from '../i18n';
 
 export interface DictateTarget {
   /** Puts a phrase where the cursor is. */
@@ -24,8 +25,6 @@ export interface Dictation {
   /** Stops listening, for good: what was being dictated into is gone. */
   drop(): void;
 }
-
-const TITLE = 'Dictate: hold to talk (or hold Ctrl+Space) and let go, and what you said is typed in. A quick click leaves it listening until you click again';
 
 /** The one that's listening now: there's one microphone, so a second 🎤 cuts off the first. */
 let active: { button: HTMLElement; abort(): void } | null = null;
@@ -51,20 +50,20 @@ export function dictation(target: DictateTarget, opts: { label?: string } = {}):
   if (speechSupport() === 'none') return { button: null, live, key: () => false, drop() {} };
   checkOnDevice();
 
-  const button = h('button.btn.dictate-mic', { type: 'button', title: TITLE, 'aria-label': 'Dictate', 'aria-pressed': 'false' }, opts.label ? `🎤 ${opts.label}` : '🎤');
+  const button = h('button.btn.dictate-mic', { type: 'button', title: t('panels.dict.title'), 'aria-label': t('panels.dict.label'), 'aria-pressed': 'false' }, opts.label ? `🎤 ${opts.label}` : '🎤');
   let listening: Listening | null = null;
   const paint = (interim = '') => {
     const on = !!listening;
     button.classList.toggle('live', on);
     button.setAttribute('aria-pressed', String(on));
     live.classList.toggle('hidden', !on);
-    live.textContent = !on ? '' : interim ? `🎙️ ${tail(interim)}` : '🎙️ Listening…';
+    live.textContent = !on ? '' : interim ? `🎙️ ${tail(interim)}` : t('panels.dict.listening');
   };
 
   const start = () => {
     if (listening || target.off?.()) return;
     if (speechSupport() === 'insecure') {
-      toast('Dictation needs HTTPS (or localhost), like voice. Ask whoever runs the office to enable TLS.', 'warn');
+      toast(t('panels.dict.https'), 'warn');
       return;
     }
     active?.abort();

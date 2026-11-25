@@ -1,7 +1,7 @@
 /* PR diff (ui/github/pulldiff.ts): the Files tab of a PR window. */
 .pd { flex: 1; min-width: 0; min-height: 0; display: flex; }
 .pd > .gh-loading, .pd > .gh-error { margin: auto; }
-.pd-side { width: 310px; flex: none; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-right: 3px solid var(--ink); background: var(--paper-2); }
+.pd-side { width: 310px; flex: none; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-inline-end: 3px solid var(--ink); background: var(--paper-2); }
 .pd-side-head { display: flex; flex-direction: column; gap: 6px; }
 /* .seg.pd-mode outranks the shared .seg row, whatever order the sheets load in. */
 .seg.pd-mode { gap: 6px; flex-wrap: nowrap; }
@@ -32,7 +32,7 @@
 .pd-st.D { background: var(--bad); color: #fff; }
 .pd-st.R { background: var(--info); }
 .pd-keys { font-size: 11px; font-weight: 700; color: var(--muted); }
-.pd-keys .key { min-width: 18px; padding: 0 5px; margin-right: 3px; background: #fff; border: 1.5px solid var(--ink); box-shadow: none; font-size: 11px; }
+.pd-keys .key { min-width: 18px; padding: 0 5px; margin-inline-end: 3px; background: #fff; border: 1.5px solid var(--ink); box-shadow: none; font-size: 11px; }
 .pd-main { flex: 1; min-width: 0; overflow: auto; position: relative; padding: 0 12px 16px; background: #efe6da; outline: none; }
 .pd-main > .pd-note { margin-top: 12px; }
 .pd-file { margin-top: 12px; background: #fff; border: 2px solid var(--ink); border-radius: 12px; box-shadow: 0 3px 0 var(--ink); overflow: clip; }
@@ -48,7 +48,8 @@
 .modal label.pd-viewed { display: flex; align-items: center; gap: 6px; margin: 0; padding: 2px 9px; font-size: 12.5px; font-weight: 800; background: #fff; border: 2px solid var(--ink); border-radius: 8px; cursor: pointer; user-select: none; white-space: nowrap; }
 .pd-file.reviewed label.pd-viewed { background: var(--good); color: #fff; }
 .pd-viewed input { margin: 0; accent-color: #2a9d4b; }
-.pd-lines { font: 12.5px/1.5 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; tab-size: 4; }
+/* Code: it reads left to right on an Arabic page too, line numbers on the left. */
+.pd-lines { font: 12.5px/1.5 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; tab-size: 4; direction: ltr; }
 .pd-l { display: flex; min-height: 1.5em; }
 .pd-n { width: 48px; flex: none; padding-right: 8px; text-align: right; color: #a39a91; background: #faf6f0; user-select: none; }
 .pd-code { flex: 1; min-width: 0; position: relative; padding: 0 10px 0 22px; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -74,6 +75,6 @@
 .pd-thread .md { padding: 4px 12px 10px; font-size: 13.5px; }
 @media (max-width: 800px) {
   .pd { flex-direction: column; }
-  .pd-side { width: auto; max-height: 38%; border-right: 0; border-bottom: 3px solid var(--ink); }
+  .pd-side { width: auto; max-height: 38%; border-inline-end: 0; border-bottom: 3px solid var(--ink); }
   .pd-thread { margin-left: 12px; }
 }

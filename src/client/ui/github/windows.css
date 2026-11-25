@@ -84,7 +84,7 @@ article.gh-card > header { display: flex; align-items: center; gap: 8px; padding
 .gh-labels label.gh-check { padding: 7px 8px; border-radius: 8px; flex-wrap: wrap; }
 .gh-labels label.gh-check:hover { background: var(--paper-2); }
 .gh-labels .label { font-size: 12px; }
-.gh-labels small { flex-basis: 100%; padding-left: 24px; color: var(--muted); font-weight: 600; font-size: 12px; }
+.gh-labels small { flex-basis: 100%; padding-inline-start: 24px; color: var(--muted); font-weight: 600; font-size: 12px; }
 .gh-labels .gh-error { margin: 8px auto; }
 /* .modal.gh-labeler outranks the frame's .modal footer .grow, whatever order the sheets load in. */
 .modal.gh-labeler footer .grow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }

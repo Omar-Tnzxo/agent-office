@@ -515,7 +515,8 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
     modal.close();
   });
   const modal = openModal(el, {
-    doing: t('settings.doing'),
+    // In English: teammates see it under your name tag, each in their own language (see i18n/server.ts).
+    doing: '⚙️ in settings',
     onClose: () => {
       offNotify();
       offDog();

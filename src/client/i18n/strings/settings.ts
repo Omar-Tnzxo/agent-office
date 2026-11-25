@@ -4,7 +4,6 @@ import type { Arabic, Strings } from '../types';
 
 export const en = {
   'settings.title': '⚙️ Settings',
-  'settings.doing': '⚙️ in settings',
   'settings.label': 'Settings',
   'settings.pane.you': 'You',
   'settings.pane.you.blurb': 'How you look, how you see the office, your language, and how you’re signed in.',
@@ -154,7 +153,6 @@ export const en = {
 
 export const ar: Arabic<typeof en> = {
   'settings.title': '⚙️ الإعدادات',
-  'settings.doing': '⚙️ في الإعدادات',
   'settings.label': 'الإعدادات',
   'settings.pane.you': 'أنت',
   'settings.pane.you.blurb': 'مظهرك، وكيف ترى المكتب، ولغتك، وطريقة تسجيل دخولك.',
